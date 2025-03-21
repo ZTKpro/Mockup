@@ -1,0 +1,933 @@
+<!DOCTYPE html>
+<html lang="pl">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Edytor etui na telefon</title>
+    <style>
+      body {
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        background-color: #f5f5f5;
+        margin: 0;
+        padding: 20px;
+        color: #333;
+      }
+
+      .container {
+        max-width: 1000px;
+        margin: 0 auto;
+        background-color: white;
+        border-radius: 10px;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        padding: 20px;
+      }
+
+      h1 {
+        text-align: center;
+        color: #2c3e50;
+        margin-bottom: 20px;
+      }
+
+      .upload-section {
+        text-align: center;
+        margin-bottom: 20px;
+        padding: 20px;
+        border: 2px dashed #ccc;
+        border-radius: 5px;
+        transition: all 0.3s;
+      }
+
+      .upload-section.highlight {
+        border-color: #3498db;
+        background-color: rgba(52, 152, 219, 0.1);
+      }
+
+      #image-upload {
+        display: none;
+      }
+
+      .upload-label {
+        display: inline-block;
+        padding: 10px 20px;
+        background-color: #3498db;
+        color: white;
+        border-radius: 5px;
+        cursor: pointer;
+        transition: background-color 0.3s;
+        margin: 5px;
+      }
+
+      .upload-label:hover {
+        background-color: #2980b9;
+      }
+
+      .editor-container {
+        position: relative;
+        width: 100%;
+        max-width: 600px;
+        height: 600px;
+        margin: 0 auto;
+        background-color: #f8f9fa;
+        border: 1px solid #dee2e6;
+        border-radius: 5px;
+        overflow: hidden;
+      }
+
+      #mockup-image {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+        z-index: 10;
+        pointer-events: none; /* Ważne: pozwala kliknąć "przez" mockup */
+      }
+
+      #image-preview {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        transform-origin: center;
+        cursor: move;
+        max-width: 100%;
+        max-height: 100%;
+      }
+
+      .controls {
+        padding: 15px;
+        background-color: #f8f9fa;
+        border-radius: 5px;
+        margin: 20px 0;
+      }
+
+      .control-group {
+        margin-bottom: 15px;
+      }
+
+      .control-group label {
+        display: block;
+        margin-bottom: 5px;
+        font-weight: bold;
+      }
+
+      /* Style dla strzałek */
+      #move-up,
+      #move-down,
+      #move-left,
+      #move-right {
+        width: 45px;
+        height: 45px;
+        margin: 5px;
+        font-size: 20px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .button-group {
+        display: flex;
+        justify-content: space-between;
+        margin-top: 10px;
+        flex-wrap: wrap;
+      }
+
+      button {
+        padding: 8px 15px;
+        background-color: #3498db;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        transition: background-color 0.3s;
+        margin: 5px;
+      }
+
+      button:hover {
+        background-color: #2980b9;
+      }
+
+      button.reset {
+        background-color: #e74c3c;
+      }
+
+      button.reset:hover {
+        background-color: #c0392b;
+      }
+
+      button.download {
+        background-color: #27ae60;
+      }
+
+      button.download:hover {
+        background-color: #2ecc71;
+      }
+
+      .slider-container {
+        display: flex;
+        align-items: center;
+      }
+
+      input[type="range"] {
+        flex-grow: 1;
+        margin: 0 10px;
+      }
+
+      .value-display {
+        min-width: 40px;
+        text-align: center;
+      }
+
+      .drag-instruction {
+        text-align: center;
+        color: #7f8c8d;
+        font-style: italic;
+        margin-top: 5px;
+      }
+
+      .upload-text {
+        margin-top: 15px;
+        color: #7f8c8d;
+      }
+
+      .drop-text {
+        display: none;
+        margin-top: 15px;
+        color: #3498db;
+      }
+
+      .layer-controls {
+        margin-bottom: 15px;
+      }
+
+      .mockup-button {
+        padding: 10px 20px;
+        background-color: #3498db;
+        color: white;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+        transition: all 0.3s;
+      }
+
+      .mockup-button:hover {
+        background-color: #2980b9;
+      }
+
+      .mockup-button.active {
+        background-color: #2c3e50;
+        font-weight: bold;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1>Projektowanie etui na telefon</h1>
+
+      <div
+        class="mockup-selection"
+        style="margin-bottom: 20px; text-align: center"
+      >
+        <h3>Wybierz mockup:</h3>
+        <div style="display: flex; justify-content: center; gap: 10px">
+          <button id="mockup-1" class="mockup-button active">Mockup 1</button>
+          <button id="mockup-2" class="mockup-button">Mockup 2</button>
+          <button id="mockup-3" class="mockup-button">Mockup 3</button>
+        </div>
+      </div>
+
+      <div class="upload-section" id="drop-area">
+        <label for="image-upload" class="upload-label">Wybierz zdjęcie</label>
+        <input type="file" id="image-upload" accept="image/*" />
+        <p class="upload-text">
+          lub przeciągnij i upuść plik ze zdjęciem tutaj
+        </p>
+        <p class="drop-text">Upuść zdjęcie tutaj</p>
+      </div>
+
+      <div class="controls" id="controls">
+        <div class="layer-controls">
+          <label>Kolejność warstw:</label>
+          <button id="layer-front">Obraz na wierzchu</button>
+          <button id="layer-back">Obraz pod etui</button>
+        </div>
+
+        <div class="control-group">
+          <label for="rotate-slider"
+            >Obrót: <span id="rotate-value">0</span>°</label
+          >
+          <div class="slider-container">
+            <button id="rotate-left">-90°</button>
+            <input
+              type="range"
+              id="rotate-slider"
+              min="-180"
+              max="180"
+              value="0"
+              step="1"
+            />
+            <button id="rotate-right">+90°</button>
+          </div>
+        </div>
+
+        <div class="control-group">
+          <label for="zoom-slider"
+            >Powiększenie: <span id="zoom-value">100</span>%</label
+          >
+          <div class="slider-container">
+            <button id="zoom-out">-</button>
+            <input
+              type="range"
+              id="zoom-slider"
+              min="10"
+              max="300"
+              value="100"
+              step="1"
+            />
+            <button id="zoom-in">+</button>
+          </div>
+        </div>
+
+        <div class="control-group">
+          <label>Przesuwanie obrazu:</label>
+          <div
+            style="display: flex; justify-content: center; margin-bottom: 10px"
+          >
+            <button id="move-up">▲</button>
+          </div>
+          <div style="display: flex; justify-content: center">
+            <button id="move-left">◀</button>
+            <button id="move-right">▶</button>
+          </div>
+          <div style="display: flex; justify-content: center; margin-top: 10px">
+            <button id="move-down">▼</button>
+          </div>
+        </div>
+
+        <div class="button-group">
+          <button id="reset-button" class="reset">Resetuj wszystko</button>
+          <button id="center-button">Wyśrodkuj</button>
+          <button id="download-button" class="download">
+            Pobierz jako PNG
+          </button>
+        </div>
+      </div>
+
+      <div class="editor-container" id="editor-container">
+        <img id="image-preview" src="" alt="Twój projekt" />
+        <img id="mockup-image" src="./1.png" alt="Mockup telefonu" />
+      </div>
+      <p class="drag-instruction" id="drag-instruction">
+        Możesz przesuwać obraz klikając i przeciągając go myszką
+      </p>
+    </div>
+
+    <script>
+      // Pobranie elementów DOM
+      const uploadInput = document.getElementById("image-upload");
+      const imagePreview = document.getElementById("image-preview");
+      const mockupImage = document.getElementById("mockup-image");
+      const editorContainer = document.getElementById("editor-container");
+      const controls = document.getElementById("controls");
+      const dragInstruction = document.getElementById("drag-instruction");
+      const dropArea = document.getElementById("drop-area");
+      const dropText = document.querySelector(".drop-text");
+      const uploadText = document.querySelector(".upload-text");
+
+      // Suwaki i przyciski kontrolne
+      const rotateSlider = document.getElementById("rotate-slider");
+      const rotateValue = document.getElementById("rotate-value");
+      const rotateLeft = document.getElementById("rotate-left");
+      const rotateRight = document.getElementById("rotate-right");
+
+      const zoomSlider = document.getElementById("zoom-slider");
+      const zoomValue = document.getElementById("zoom-value");
+      const zoomIn = document.getElementById("zoom-in");
+      const zoomOut = document.getElementById("zoom-out");
+
+      const resetButton = document.getElementById("reset-button");
+      const centerButton = document.getElementById("center-button");
+      const layerFrontButton = document.getElementById("layer-front");
+      const layerBackButton = document.getElementById("layer-back");
+
+      // Przyciski strzałek
+      const moveUpButton = document.getElementById("move-up");
+      const moveDownButton = document.getElementById("move-down");
+      const moveLeftButton = document.getElementById("move-left");
+      const moveRightButton = document.getElementById("move-right");
+
+      // Przycisk pobierania
+      const downloadButton = document.getElementById("download-button");
+
+      // Przyciski wyboru mockupu
+      const mockup1Button = document.getElementById("mockup-1");
+      const mockup2Button = document.getElementById("mockup-2");
+      const mockup3Button = document.getElementById("mockup-3");
+
+      // Aktualny mockup
+      let currentMockupFile = "./1.png";
+
+      // Zmienne stanu
+      let isDragging = false;
+      let startX, startY, initialX, initialY;
+      let currentX = 0;
+      let currentY = 0;
+      let currentRotation = 0;
+      let currentZoom = 100;
+      let userImageLoaded = false; // Flaga do śledzenia, czy obraz użytkownika został wczytany
+
+      // Obsługa uploadu pliku przez kliknięcie
+      uploadInput.addEventListener("change", handleFileSelect);
+
+      // Obsługa uploadu przez drag & drop
+      ["dragenter", "dragover", "dragleave", "drop"].forEach((eventName) => {
+        dropArea.addEventListener(eventName, preventDefaults, false);
+      });
+
+      function preventDefaults(e) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+
+      ["dragenter", "dragover"].forEach((eventName) => {
+        dropArea.addEventListener(eventName, highlight, false);
+      });
+
+      ["dragleave", "drop"].forEach((eventName) => {
+        dropArea.addEventListener(eventName, unhighlight, false);
+      });
+
+      function highlight() {
+        dropArea.classList.add("highlight");
+        uploadText.style.display = "none";
+        dropText.style.display = "block";
+      }
+
+      function unhighlight() {
+        dropArea.classList.remove("highlight");
+        uploadText.style.display = "block";
+        dropText.style.display = "none";
+      }
+
+      dropArea.addEventListener("drop", handleDrop, false);
+
+      function handleDrop(e) {
+        const dt = e.dataTransfer;
+        const files = dt.files;
+        if (files.length) {
+          handleFiles(files);
+        }
+      }
+
+      function handleFiles(files) {
+        if (files[0].type.match("image.*")) {
+          const reader = new FileReader();
+
+          reader.onload = function (e) {
+            // Wyświetlenie podglądu obrazu
+            imagePreview.src = e.target.result;
+            imagePreview.onload = function () {
+              // Pokaż kontrolki i instrukcję
+              controls.style.display = "block";
+              dragInstruction.style.display = "block";
+
+              // Ustaw flagę, że obraz użytkownika jest wczytany
+              userImageLoaded = true;
+
+              // Resetuj ustawienia
+              resetTransformations();
+
+              // Upewnij się, że obraz jest wyśrodkowany
+              centerImage();
+
+              // Domyślnie ustaw obraz pod mockupem
+              imagePreview.style.zIndex = "5";
+            };
+          };
+
+          reader.readAsDataURL(files[0]);
+        } else {
+          alert("Proszę wybrać plik ze zdjęciem");
+        }
+      }
+
+      function handleFileSelect(e) {
+        const files = e.target.files;
+        handleFiles(files);
+      }
+
+      // Obsługa przesuwania obrazu
+      imagePreview.addEventListener("mousedown", startDrag);
+      window.addEventListener("mouseup", stopDrag);
+      window.addEventListener("mousemove", drag);
+
+      function startDrag(e) {
+        isDragging = true;
+        startX = e.clientX;
+        startY = e.clientY;
+        initialX = currentX;
+        initialY = currentY;
+        imagePreview.style.cursor = "grabbing";
+      }
+
+      function stopDrag() {
+        isDragging = false;
+        imagePreview.style.cursor = "move";
+      }
+
+      function drag(e) {
+        if (isDragging) {
+          const dx = e.clientX - startX;
+          const dy = e.clientY - startY;
+
+          currentX = initialX + dx;
+          currentY = initialY + dy;
+
+          updateTransform();
+        }
+      }
+
+      // Obsługa kontrolek
+      rotateSlider.addEventListener("input", function () {
+        currentRotation = parseInt(this.value);
+        rotateValue.textContent = currentRotation;
+        updateTransform();
+      });
+
+      zoomSlider.addEventListener("input", function () {
+        currentZoom = parseInt(this.value);
+        zoomValue.textContent = currentZoom;
+        updateTransform();
+      });
+
+      rotateLeft.addEventListener("click", function () {
+        currentRotation -= 90;
+        if (currentRotation < -180) currentRotation += 360;
+        rotateSlider.value = currentRotation;
+        rotateValue.textContent = currentRotation;
+        updateTransform();
+      });
+
+      rotateRight.addEventListener("click", function () {
+        currentRotation += 90;
+        if (currentRotation > 180) currentRotation -= 360;
+        rotateSlider.value = currentRotation;
+        rotateValue.textContent = currentRotation;
+        updateTransform();
+      });
+
+      zoomIn.addEventListener("click", function () {
+        currentZoom = Math.min(currentZoom + 10, 300);
+        zoomSlider.value = currentZoom;
+        zoomValue.textContent = currentZoom;
+        updateTransform();
+      });
+
+      zoomOut.addEventListener("click", function () {
+        currentZoom = Math.max(currentZoom - 10, 10);
+        zoomSlider.value = currentZoom;
+        zoomValue.textContent = currentZoom;
+        updateTransform();
+      });
+
+      resetButton.addEventListener("click", resetTransformations);
+
+      centerButton.addEventListener("click", function () {
+        centerImage();
+      });
+
+      layerFrontButton.addEventListener("click", function () {
+        imagePreview.style.zIndex = "20";
+      });
+
+      layerBackButton.addEventListener("click", function () {
+        imagePreview.style.zIndex = "5";
+      });
+
+      // Odległość przesuwania w pikselach dla każdego kliknięcia strzałki
+      const moveStep = 10;
+
+      // Obsługa przycisków strzałek
+      moveUpButton.addEventListener("click", function () {
+        currentY -= moveStep;
+        updateTransform();
+      });
+
+      moveDownButton.addEventListener("click", function () {
+        currentY += moveStep;
+        updateTransform();
+      });
+
+      moveLeftButton.addEventListener("click", function () {
+        currentX -= moveStep;
+        updateTransform();
+      });
+
+      moveRightButton.addEventListener("click", function () {
+        currentX += moveStep;
+        updateTransform();
+      });
+
+      // Obsługa klawiszy strzałek na klawiaturze
+      window.addEventListener("keydown", function (e) {
+        // Tylko jeśli obraz został wczytany
+        if (imagePreview.src) {
+          switch (e.key) {
+            case "ArrowUp":
+              currentY -= moveStep;
+              e.preventDefault();
+              break;
+            case "ArrowDown":
+              currentY += moveStep;
+              e.preventDefault();
+              break;
+            case "ArrowLeft":
+              currentX -= moveStep;
+              e.preventDefault();
+              break;
+            case "ArrowRight":
+              currentX += moveStep;
+              e.preventDefault();
+              break;
+          }
+          updateTransform();
+        }
+      });
+
+      // Obsługa przycisku pobierania
+      downloadButton.addEventListener("click", function () {
+        if (!imagePreview.src || imagePreview.src === "") {
+          alert("Najpierw wgraj zdjęcie!");
+          return;
+        }
+
+        // Tworzymy element do pokazywania postępu zamiast blokkującego alert
+        const progressMsg = document.createElement("div");
+        progressMsg.style.position = "fixed";
+        progressMsg.style.top = "50%";
+        progressMsg.style.left = "50%";
+        progressMsg.style.transform = "translate(-50%, -50%)";
+        progressMsg.style.background = "rgba(0, 0, 0, 0.8)";
+        progressMsg.style.color = "white";
+        progressMsg.style.padding = "20px";
+        progressMsg.style.borderRadius = "10px";
+        progressMsg.style.zIndex = "9999";
+        progressMsg.textContent = "Trwa generowanie obrazu, proszę czekać...";
+        document.body.appendChild(progressMsg);
+
+        // Opóźniamy wykonanie o 100ms, aby komunikat się pokazał
+        setTimeout(function () {
+          try {
+            // Utwórz canvas o stałych wymiarach, niezależnie od urządzenia
+            const canvas = document.createElement("canvas");
+            const ctx = canvas.getContext("2d");
+
+            // Ustaw stałe wymiary canvasa - zawsze kwadrat 600x600px
+            const CANVAS_SIZE = 600;
+            canvas.width = CANVAS_SIZE;
+            canvas.height = CANVAS_SIZE;
+
+            // Zachowujemy informację o aktualnych wymiarach edytora dla późniejszego skalowania
+            const editorRect = editorContainer.getBoundingClientRect();
+
+            // Utwórz obrazy do rysowania
+            const bgImage = new Image();
+            const userImage = new Image();
+            let loadedImages = 0;
+            let hasError = false;
+
+            // Funkcja obsługująca błędy ładowania obrazów
+            function handleImageError(message) {
+              hasError = true;
+              console.error(message);
+              document.body.removeChild(progressMsg);
+              alert("Błąd: " + message);
+            }
+
+            // Obsługa po załadowaniu obu obrazów
+            function drawAndDownload() {
+              if (hasError) return;
+
+              try {
+                // Najpierw narysuj białe tło
+                ctx.fillStyle = "white";
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+                // Sprawdź zIndex obrazu użytkownika
+                const imageOnTop =
+                  imagePreview.style.zIndex === "20" ||
+                  parseInt(imagePreview.style.zIndex || "0") > 10;
+
+                if (imageOnTop) {
+                  // Mockup pod spodem, obraz użytkownika na wierzchu
+                  ctx.drawImage(bgImage, 0, 0, canvas.width, canvas.height);
+                  ctx.save();
+
+                  // Obliczamy współczynnik skalowania między stałym rozmiarem canvasa a aktualnym rozmiarem edytora
+                  const scaleFactorX = canvas.width / editorRect.width;
+                  const scaleFactorY = canvas.height / editorRect.height;
+
+                  // Zastosuj transformacje do obrazu użytkownika, skalując przesunięcie odpowiednio
+                  ctx.translate(
+                    canvas.width / 2 + currentX * scaleFactorX,
+                    canvas.height / 2 + currentY * scaleFactorY
+                  );
+                  ctx.rotate((currentRotation * Math.PI) / 180);
+                  ctx.scale(currentZoom / 100, currentZoom / 100);
+
+                  // Rysuj obraz użytkownika
+                  ctx.drawImage(
+                    userImage,
+                    -userImage.width / 2,
+                    -userImage.height / 2
+                  );
+                  ctx.restore();
+                } else {
+                  // Obraz użytkownika pod spodem, mockup na wierzchu
+                  ctx.save();
+
+                  // Obliczamy współczynnik skalowania między stałym rozmiarem canvasa a aktualnym rozmiarem edytora
+                  const scaleFactorX = canvas.width / editorRect.width;
+                  const scaleFactorY = canvas.height / editorRect.height;
+
+                  // Zastosuj transformacje do obrazu użytkownika, skalując przesunięcie odpowiednio
+                  ctx.translate(
+                    canvas.width / 2 + currentX * scaleFactorX,
+                    canvas.height / 2 + currentY * scaleFactorY
+                  );
+                  ctx.rotate((currentRotation * Math.PI) / 180);
+                  ctx.scale(currentZoom / 100, currentZoom / 100);
+
+                  // Rysuj obraz użytkownika
+                  ctx.drawImage(
+                    userImage,
+                    -userImage.width / 2,
+                    -userImage.height / 2
+                  );
+                  ctx.restore();
+
+                  // Rysuj mockup na wierzchu
+                  ctx.drawImage(bgImage, 0, 0, canvas.width, canvas.height);
+                }
+
+                // Pobierz obrazek - sprawdź czy toBlob jest dostępne
+                if (canvas.toBlob) {
+                  canvas.toBlob(function (blob) {
+                    downloadUsingBlob(blob);
+                  }, "image/png");
+                } else {
+                  // Fallback dla starszych przeglądarek
+                  const dataURL = canvas.toDataURL("image/png");
+                  downloadUsingDataURL(dataURL);
+                }
+              } catch (e) {
+                console.error("Błąd przy rysowaniu:", e);
+                document.body.removeChild(progressMsg);
+                alert(
+                  "Wystąpił błąd podczas renderowania obrazu: " + e.message
+                );
+              }
+            }
+
+            // Funkcja pobierania przy użyciu Blob
+            function downloadUsingBlob(blob) {
+              try {
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement("a");
+                a.href = url;
+                a.download = "projekt-etui.png";
+                document.body.appendChild(a);
+                a.click();
+
+                // Dajemy przeglądarce czas na rozpoczęcie pobierania
+                setTimeout(function () {
+                  document.body.removeChild(a);
+                  URL.revokeObjectURL(url);
+                  document.body.removeChild(progressMsg);
+                }, 100);
+              } catch (e) {
+                console.error("Błąd przy pobieraniu (blob):", e);
+                document.body.removeChild(progressMsg);
+                alert("Wystąpił błąd podczas pobierania obrazu: " + e.message);
+              }
+            }
+
+            // Funkcja pobierania przy użyciu dataURL (fallback)
+            function downloadUsingDataURL(dataURL) {
+              try {
+                const a = document.createElement("a");
+                a.href = dataURL;
+                a.download = "projekt-etui.png";
+                document.body.appendChild(a);
+                a.click();
+
+                // Dajemy przeglądarce czas na rozpoczęcie pobierania
+                setTimeout(function () {
+                  document.body.removeChild(a);
+                  document.body.removeChild(progressMsg);
+                }, 100);
+              } catch (e) {
+                console.error("Błąd przy pobieraniu (dataURL):", e);
+                document.body.removeChild(progressMsg);
+                alert("Wystąpił błąd podczas pobierania obrazu: " + e.message);
+              }
+            }
+
+            // Obsługa błędów ładowania obrazów
+            bgImage.onerror = function () {
+              handleImageError("Nie można załadować obrazu mockupu");
+            };
+
+            userImage.onerror = function () {
+              handleImageError("Nie można załadować obrazu użytkownika");
+            };
+
+            // Załaduj obrazy
+            bgImage.onload = function () {
+              loadedImages++;
+              if (loadedImages === 2) drawAndDownload();
+            };
+
+            userImage.onload = function () {
+              loadedImages++;
+              if (loadedImages === 2) drawAndDownload();
+            };
+
+            // Ustaw atrybuty crossOrigin przed ustawieniem src
+            bgImage.crossOrigin = "Anonymous";
+            userImage.crossOrigin = "Anonymous";
+
+            // Dodajemy timestamp dla uniknięcia cache
+            const cacheBuster = "?t=" + new Date().getTime();
+            bgImage.src = mockupImage.src + cacheBuster;
+            userImage.src = imagePreview.src;
+
+            // Timeout na wypadek, gdyby obrazy się nie załadowały
+            setTimeout(function () {
+              if (loadedImages < 2 && !hasError) {
+                handleImageError("Przekroczono limit czasu ładowania obrazów");
+              }
+            }, 10000);
+          } catch (e) {
+            console.error("Błąd generowania obrazu:", e);
+            document.body.removeChild(progressMsg);
+            alert("Wystąpił błąd podczas generowania obrazu: " + e.message);
+          }
+        }, 100);
+      });
+      function centerImage() {
+        currentX = 0;
+        currentY = 0;
+        updateTransform();
+      }
+
+      // Aktualizacja transformacji
+      function updateTransform() {
+        imagePreview.style.transform = `translate(calc(-50% + ${currentX}px), calc(-50% + ${currentY}px)) rotate(${currentRotation}deg) scale(${
+          currentZoom / 100
+        })`;
+      }
+
+      // Obsługa przycisków wyboru mockupu
+      mockup1Button.addEventListener("click", function () {
+        changeMockup("./1.png");
+        updateMockupButtons("./1.png");
+      });
+
+      mockup2Button.addEventListener("click", function () {
+        changeMockup("./2.png");
+        updateMockupButtons("./2.png");
+      });
+
+      mockup3Button.addEventListener("click", function () {
+        changeMockup("./3.png");
+        updateMockupButtons("./3.png");
+      });
+
+      // Funkcja zmieniająca mockup
+      function changeMockup(mockupPath) {
+        currentMockupFile = mockupPath;
+
+        // Zachowaj stan kontrolek przed zmianą mockupu
+        const controlsWereVisible = controls.style.display === "block";
+        const instructionsWereVisible =
+          dragInstruction.style.display === "block";
+
+        mockupImage.src = mockupPath;
+
+        // Obsługa błędu ładowania mockupu
+        mockupImage.onerror = function () {
+          console.error(`Nie można załadować mockupu: ${mockupPath}`);
+          alert(
+            `Nie można załadować mockupu: ${mockupPath}. Używanie placeholdera.`
+          );
+          mockupImage.src =
+            "https://via.placeholder.com/400x800/ffffff/000000?text=Mockup+Niedostępny";
+        };
+
+        // Obsługa zdarzenia onload mockupa - to się uruchamia po załadowaniu nowego mockupu
+        mockupImage.onload = function () {
+          // Przywróć widoczność kontrolek, jeśli były widoczne i obraz został wcześniej wczytany
+          if (userImageLoaded) {
+            controls.style.display = "block";
+            dragInstruction.style.display = "block";
+          }
+        };
+
+        // Dodatkowo, natychmiast przywróć kontrolki, jeśli obraz użytkownika jest wczytany
+        if (userImageLoaded) {
+          // Używamy setTimeout, aby upewnić się, że kontrolki zostaną przywrócone
+          // nawet jeśli coś innego próbuje je ukryć
+          setTimeout(function () {
+            controls.style.display = "block";
+            dragInstruction.style.display = "block";
+          }, 50);
+        }
+      }
+
+      // Funkcja aktualizująca wygląd przycisków mockupów
+      function updateMockupButtons(selectedMockup) {
+        // Usuń klasę active ze wszystkich przycisków
+        mockup1Button.classList.remove("active");
+        mockup2Button.classList.remove("active");
+        mockup3Button.classList.remove("active");
+
+        // Dodaj klasę active do wybranego przycisku
+        if (selectedMockup === "./1.png") {
+          mockup1Button.classList.add("active");
+        } else if (selectedMockup === "./2.png") {
+          mockup2Button.classList.add("active");
+        } else if (selectedMockup === "./3.png") {
+          mockup3Button.classList.add("active");
+        }
+      }
+
+      // Resetowanie wszystkich transformacji
+      function resetTransformations() {
+        currentX = 0;
+        currentY = 0;
+        currentRotation = 0;
+        currentZoom = 100;
+
+        rotateSlider.value = currentRotation;
+        rotateValue.textContent = currentRotation;
+
+        zoomSlider.value = currentZoom;
+        zoomValue.textContent = currentZoom;
+
+        updateTransform();
+      }
+
+      // Inicjalizacja
+      window.onload = function () {
+        // Ustaw domyślny mockup
+        mockupImage.src = currentMockupFile;
+
+        // Domyślne ustawienie braku kontrolek przy starcie
+        controls.style.display = "none";
+        dragInstruction.style.display = "none";
+      };
+    </script>
+  </body>
+</html>
