@@ -1,307 +1,384 @@
 <!DOCTYPE html>
 <html lang="pl">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Moduł wgrywania zdjęć</title>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Dodawanie mockupów etui</title>
     <style>
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-            font-family: Arial, sans-serif;
-        }
-        
-        body {
-            background-color: #f5f5f5;
-            padding: 20px;
-        }
-        
-        .container {
-            max-width: 1000px;
-            margin: 0 auto;
-            background-color: white;
-            padding: 20px;
-            border-radius: 8px;
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-        }
-        
-        h1 {
-            text-align: center;
-            margin-bottom: 20px;
-            color: #333;
-        }
-        
-        .upload-container {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            margin-bottom: 30px;
-            padding: 20px;
-            border: 2px dashed #ccc;
-            border-radius: 8px;
-            transition: all 0.3s ease;
-        }
-        
-        .upload-container:hover {
-            border-color: #666;
-        }
-        
-        .upload-container.dragover {
-            background-color: #f0f8ff;
-            border-color: #4a90e2;
-        }
-        
-        #file-input {
-            display: none;
-        }
-        
-        .upload-btn {
-            padding: 10px 20px;
-            background-color: #4a90e2;
-            color: white;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 16px;
-            margin-bottom: 10px;
-            transition: background-color 0.3s;
-        }
-        
-        .upload-btn:hover {
-            background-color: #357bc0;
-        }
-        
-        .upload-info {
-            color: #666;
-            margin-top: 10px;
-            text-align: center;
-        }
-        
-        .gallery {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-            gap: 20px;
-        }
-        
-        .img-container {
-            position: relative;
-            height: 200px;
-            border-radius: 8px;
-            overflow: hidden;
-            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
-        }
-        
-        .img-container img {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-            transition: transform 0.3s;
-        }
-        
-        .img-container:hover img {
-            transform: scale(1.05);
-        }
-        
-        .img-container .delete-btn {
-            position: absolute;
-            top: 10px;
-            right: 10px;
-            background-color: rgba(255, 0, 0, 0.7);
-            color: white;
-            border: none;
-            width: 30px;
-            height: 30px;
-            border-radius: 50%;
-            cursor: pointer;
-            opacity: 0;
-            transition: opacity 0.3s;
-        }
-        
-        .img-container:hover .delete-btn {
-            opacity: 1;
-        }
-        
-        .img-container .delete-btn:hover {
-            background-color: rgba(255, 0, 0, 0.9);
-        }
-        
-        .no-photos {
-            text-align: center;
-            color: #999;
-            grid-column: 1 / -1;
-            padding: 40px;
-        }
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+      }
+
+      body {
+        background-color: #f5f5f5;
+        padding: 20px;
+      }
+
+      .container {
+        max-width: 1000px;
+        margin: 0 auto;
+        background-color: white;
+        padding: 20px;
+        border-radius: 8px;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+      }
+
+      h1 {
+        text-align: center;
+        margin-bottom: 20px;
+        color: #333;
+      }
+
+      .upload-container {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        margin-bottom: 30px;
+        padding: 20px;
+        border: 2px dashed #ccc;
+        border-radius: 8px;
+        transition: all 0.3s ease;
+      }
+
+      .upload-container:hover {
+        border-color: #666;
+      }
+
+      .upload-container.dragover {
+        background-color: #f0f8ff;
+        border-color: #4a90e2;
+      }
+
+      #file-input {
+        display: none;
+      }
+
+      .upload-btn {
+        padding: 10px 20px;
+        background-color: #3498db;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 16px;
+        margin-bottom: 10px;
+        transition: background-color 0.3s;
+      }
+
+      .upload-btn:hover {
+        background-color: #2980b9;
+      }
+
+      .upload-info {
+        color: #666;
+        margin-top: 10px;
+        text-align: center;
+      }
+
+      .gallery {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+        gap: 20px;
+      }
+
+      .img-container {
+        position: relative;
+        height: 200px;
+        border-radius: 8px;
+        overflow: hidden;
+        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+      }
+
+      .img-container img {
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+        transition: transform 0.3s;
+      }
+
+      .img-container:hover img {
+        transform: scale(1.05);
+      }
+
+      .img-container .delete-btn {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        background-color: rgba(255, 0, 0, 0.7);
+        color: white;
+        border: none;
+        width: 30px;
+        height: 30px;
+        border-radius: 50%;
+        cursor: pointer;
+        opacity: 0;
+        transition: opacity 0.3s;
+      }
+
+      .img-container:hover .delete-btn {
+        opacity: 1;
+      }
+
+      .img-container .delete-btn:hover {
+        background-color: rgba(255, 0, 0, 0.9);
+      }
+
+      .no-photos {
+        text-align: center;
+        color: #999;
+        grid-column: 1 / -1;
+        padding: 40px;
+      }
+
+      .nav-buttons {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 20px;
+      }
+
+      .back-btn {
+        padding: 10px 20px;
+        background-color: #95a5a6;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 16px;
+        transition: background-color 0.3s;
+        text-decoration: none;
+        display: inline-block;
+      }
+
+      .back-btn:hover {
+        background-color: #7f8c8d;
+      }
+
+      .button-container {
+        display: flex;
+        justify-content: center;
+        margin-top: 20px;
+      }
+
+      .save-btn {
+        padding: 12px 24px;
+        background-color: #27ae60;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 16px;
+        transition: background-color 0.3s;
+      }
+
+      .save-btn:hover {
+        background-color: #2ecc71;
+      }
+
+      .requirements {
+        background-color: #f8f9fa;
+        padding: 15px;
+        border-radius: 8px;
+        margin-bottom: 20px;
+        border: 1px solid #dee2e6;
+      }
+
+      .requirements h3 {
+        margin-bottom: 10px;
+        color: #2c3e50;
+      }
+
+      .requirements ul {
+        margin-left: 20px;
+      }
+
+      .requirements li {
+        margin-bottom: 5px;
+      }
     </style>
-</head>
-<body>
+  </head>
+  <body>
     <div class="container">
-        <h1>Galeria zdjęć</h1>
-        
-        <div class="upload-container" id="drop-area">
-            <input type="file" id="file-input" accept="image/*" multiple>
-            <button class="upload-btn" id="upload-btn">Wybierz zdjęcia</button>
-            <p class="upload-info">lub przeciągnij i upuść pliki tutaj</p>
+      <div class="nav-buttons">
+        <a href="index.html" class="back-btn">← Powrót do edytora</a>
+      </div>
+
+      <h1>Dodawanie mockupów etui</h1>
+
+      <div class="requirements">
+        <h3>Wymagania dla mockupów:</h3>
+        <ul>
+          <li>Format PNG z przezroczystym tłem</li>
+          <li>Preferowana rozdzielczość: minimum 600x1200 pikseli</li>
+          <li>
+            Mockup powinien przedstawiać obrys telefonu z przezroczystą częścią
+            w miejscu, gdzie będzie wstawiony obraz
+          </li>
+          <li>Dodane mockupy będą dostępne w edytorze po odświeżeniu strony</li>
+        </ul>
+      </div>
+
+      <div class="upload-container" id="drop-area">
+        <input type="file" id="file-input" accept="image/png" multiple />
+        <button class="upload-btn" id="upload-btn">
+          Wybierz pliki mockupów
+        </button>
+        <p class="upload-info">lub przeciągnij i upuść pliki PNG tutaj</p>
+      </div>
+
+      <div class="gallery" id="gallery">
+        <div class="no-photos" id="no-photos">
+          Brak mockupów do wyświetlenia. Dodaj pierwszy mockup!
         </div>
-        
-        <div class="gallery" id="gallery">
-            <div class="no-photos" id="no-photos">
-                Brak zdjęć do wyświetlenia. Dodaj pierwsze zdjęcie!
-            </div>
-        </div>
+      </div>
+
+      <div class="button-container">
+        <button class="save-btn" id="save-btn">Zapisz wszystkie mockupy</button>
+      </div>
     </div>
 
     <script>
-        document.addEventListener('DOMContentLoaded', () => {
-            const fileInput = document.getElementById('file-input');
-            const uploadBtn = document.getElementById('upload-btn');
-            const dropArea = document.getElementById('drop-area');
-            const gallery = document.getElementById('gallery');
-            const noPhotos = document.getElementById('no-photos');
-            
-            // Obsługa kliknięcia przycisku upload
-            uploadBtn.addEventListener('click', () => {
-                fileInput.click();
-            });
-            
-            // Obsługa wyboru plików
-            fileInput.addEventListener('change', handleFiles);
-            
-            // Obsługa drag & drop
-            ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
-                dropArea.addEventListener(eventName, preventDefaults);
-            });
-            
-            function preventDefaults(e) {
-                e.preventDefault();
-                e.stopPropagation();
-            }
-            
-            ['dragenter', 'dragover'].forEach(eventName => {
-                dropArea.addEventListener(eventName, () => {
-                    dropArea.classList.add('dragover');
-                });
-            });
-            
-            ['dragleave', 'drop'].forEach(eventName => {
-                dropArea.addEventListener(eventName, () => {
-                    dropArea.classList.remove('dragover');
-                });
-            });
-            
-            dropArea.addEventListener('drop', (e) => {
-                const dt = e.dataTransfer;
-                const files = dt.files;
-                handleFiles({ target: { files } });
-            });
-            
-            // Funkcja obsługująca wgrane pliki
-            function handleFiles(e) {
-                const files = e.target.files;
-                
-                if (files.length > 0) {
-                    // Ukryj komunikat o braku zdjęć
-                    noPhotos.style.display = 'none';
-                    
-                    // Przetwórz każdy plik
-                    Array.from(files).forEach(file => {
-                        if (!file.type.match('image.*')) {
-                            alert('Wybierz tylko pliki graficzne!');
-                            return;
-                        }
-                        
-                        const reader = new FileReader();
-                        
-                        reader.onload = (e) => {
-                            const imgContainer = document.createElement('div');
-                            imgContainer.className = 'img-container';
-                            
-                            const img = document.createElement('img');
-                            img.src = e.target.result;
-                            img.alt = file.name;
-                            
-                            const deleteBtn = document.createElement('button');
-                            deleteBtn.className = 'delete-btn';
-                            deleteBtn.innerHTML = '×';
-                            deleteBtn.title = 'Usuń zdjęcie';
-                            deleteBtn.addEventListener('click', () => {
-                                imgContainer.remove();
-                                
-                                // Jeśli usunięto wszystkie zdjęcia, pokaż komunikat
-                                if (gallery.querySelectorAll('.img-container').length === 0) {
-                                    noPhotos.style.display = 'block';
-                                }
-                            });
-                            
-                            imgContainer.appendChild(img);
-                            imgContainer.appendChild(deleteBtn);
-                            gallery.appendChild(imgContainer);
-                            
-                            // Zapisz w localStorage (opcjonalnie)
-                            saveGalleryToLocalStorage();
-                        };
-                        
-                        reader.readAsDataURL(file);
-                    });
-                }
-                
-                // Resetuj input, aby możliwe było wybranie tych samych plików ponownie
-                fileInput.value = '';
-            }
-            
-            // Zapisz galerię do localStorage (opcjonalnie)
-            function saveGalleryToLocalStorage() {
-                const images = [];
-                document.querySelectorAll('.img-container img').forEach(img => {
-                    images.push(img.src);
-                });
-                
-                localStorage.setItem('galleryImages', JSON.stringify(images));
-            }
-            
-            // Ładuj galerię z localStorage (opcjonalnie)
-            function loadGalleryFromLocalStorage() {
-                const savedImages = localStorage.getItem('galleryImages');
-                
-                if (savedImages) {
-                    const images = JSON.parse(savedImages);
-                    
-                    if (images.length > 0) {
-                        noPhotos.style.display = 'none';
-                        
-                        images.forEach(imgSrc => {
-                            const imgContainer = document.createElement('div');
-                            imgContainer.className = 'img-container';
-                            
-                            const img = document.createElement('img');
-                            img.src = imgSrc;
-                            
-                            const deleteBtn = document.createElement('button');
-                            deleteBtn.className = 'delete-btn';
-                            deleteBtn.innerHTML = '×';
-                            deleteBtn.title = 'Usuń zdjęcie';
-                            deleteBtn.addEventListener('click', () => {
-                                imgContainer.remove();
-                                
-                                // Jeśli usunięto wszystkie zdjęcia, pokaż komunikat
-                                if (gallery.querySelectorAll('.img-container').length === 0) {
-                                    noPhotos.style.display = 'block';
-                                }
-                                
-                                saveGalleryToLocalStorage();
-                            });
-                            
-                            imgContainer.appendChild(img);
-                            imgContainer.appendChild(deleteBtn);
-                            gallery.appendChild(imgContainer);
-                        });
-                    }
-                }
-            }
-            
-            // Ładuj zapisane zdjęcia przy starcie (opcjonalnie)
-            loadGalleryFromLocalStorage();
+      document.addEventListener("DOMContentLoaded", () => {
+        const fileInput = document.getElementById("file-input");
+        const uploadBtn = document.getElementById("upload-btn");
+        const dropArea = document.getElementById("drop-area");
+        const gallery = document.getElementById("gallery");
+        const noPhotos = document.getElementById("no-photos");
+        const saveBtn = document.getElementById("save-btn");
+
+        // Obsługa kliknięcia przycisku upload
+        uploadBtn.addEventListener("click", () => {
+          fileInput.click();
         });
+
+        // Obsługa wyboru plików
+        fileInput.addEventListener("change", handleFiles);
+
+        // Obsługa drag & drop
+        ["dragenter", "dragover", "dragleave", "drop"].forEach((eventName) => {
+          dropArea.addEventListener(eventName, preventDefaults);
+        });
+
+        function preventDefaults(e) {
+          e.preventDefault();
+          e.stopPropagation();
+        }
+
+        ["dragenter", "dragover"].forEach((eventName) => {
+          dropArea.addEventListener(eventName, () => {
+            dropArea.classList.add("dragover");
+          });
+        });
+
+        ["dragleave", "drop"].forEach((eventName) => {
+          dropArea.addEventListener(eventName, () => {
+            dropArea.classList.remove("dragover");
+          });
+        });
+
+        dropArea.addEventListener("drop", (e) => {
+          const dt = e.dataTransfer;
+          const files = dt.files;
+          handleFiles({ target: { files } });
+        });
+
+        // Funkcja obsługująca wgrane pliki
+        function handleFiles(e) {
+          const files = e.target.files;
+
+          if (files.length > 0) {
+            // Ukryj komunikat o braku zdjęć
+            noPhotos.style.display = "none";
+
+            // Przetwórz każdy plik
+            Array.from(files).forEach((file) => {
+              if (!file.type.match("image/png")) {
+                alert("Wybierz tylko pliki PNG!");
+                return;
+              }
+
+              const reader = new FileReader();
+
+              reader.onload = (e) => {
+                const imgContainer = document.createElement("div");
+                imgContainer.className = "img-container";
+
+                const img = document.createElement("img");
+                img.src = e.target.result;
+                img.alt = file.name;
+                img.dataset.filename = file.name;
+
+                const deleteBtn = document.createElement("button");
+                deleteBtn.className = "delete-btn";
+                deleteBtn.innerHTML = "×";
+                deleteBtn.title = "Usuń mockup";
+                deleteBtn.addEventListener("click", () => {
+                  imgContainer.remove();
+
+                  // Jeśli usunięto wszystkie zdjęcia, pokaż komunikat
+                  if (gallery.querySelectorAll(".img-container").length === 0) {
+                    noPhotos.style.display = "block";
+                  }
+                });
+
+                imgContainer.appendChild(img);
+                imgContainer.appendChild(deleteBtn);
+                gallery.appendChild(imgContainer);
+              };
+
+              reader.readAsDataURL(file);
+            });
+          }
+
+          // Resetuj input, aby możliwe było wybranie tych samych plików ponownie
+          fileInput.value = "";
+        }
+
+        // Obsługa przycisku zapisywania
+        saveBtn.addEventListener("click", () => {
+          const mockups = document.querySelectorAll(".img-container img");
+
+          if (mockups.length === 0) {
+            alert("Brak mockupów do zapisania!");
+            return;
+          }
+
+          // W prawdziwej aplikacji tutaj byłby kod do zapisywania plików na serwerze
+          // W tej wersji demo tylko symulujemy zapisywanie
+
+          // Tworzymy element do pokazywania postępu
+          const progressMsg = document.createElement("div");
+          progressMsg.style.position = "fixed";
+          progressMsg.style.top = "50%";
+          progressMsg.style.left = "50%";
+          progressMsg.style.transform = "translate(-50%, -50%)";
+          progressMsg.style.background = "rgba(0, 0, 0, 0.8)";
+          progressMsg.style.color = "white";
+          progressMsg.style.padding = "20px";
+          progressMsg.style.borderRadius = "10px";
+          progressMsg.style.zIndex = "9999";
+          progressMsg.textContent = "Zapisywanie mockupów, proszę czekać...";
+          document.body.appendChild(progressMsg);
+
+          // Symulacja zapisywania - opóźnienie 2 sekundy
+          setTimeout(() => {
+            document.body.removeChild(progressMsg);
+
+            // Zapisz informację, że mockupy zostały dodane (w prawdziwej aplikacji byłoby to na serwerze)
+            localStorage.setItem("mockupsAdded", "true");
+
+            alert(
+              "Mockupy zostały pomyślnie zapisane! Będą widoczne po powrocie do edytora."
+            );
+
+            // Przekierowanie z powrotem do edytora
+            window.location.href = "index.html";
+          }, 2000);
+        });
+      });
     </script>
-</body>
+    <script src="./js/auth.js"></script>
+  </body>
 </html>

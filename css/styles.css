@@ -295,6 +295,31 @@ input[type="range"] {
   padding: 5px 10px;
 }
 
+/* Styl dla przycisku dodawania mockupów */
+.add-mockup-button {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  border: 1px solid #ddd;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.add-button-content {
+  font-size: 40px;
+  color: #95a5a6;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  height: 100%;
+  transition: all 0.3s;
+}
+
+.add-mockup-button:hover .add-button-content {
+  color: #3498db;
+}
+
 img {
   -webkit-user-drag: none;
   -khtml-user-drag: none;

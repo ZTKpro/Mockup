@@ -64,8 +64,12 @@ function setupThumbnailListeners() {
   // Obsługa kliknięć na miniaturki
   mockupThumbnails.forEach((thumbnail) => {
     thumbnail.addEventListener("click", function (e) {
-      // Ignoruj kliknięcie, jeśli kliknięto na checkbox
-      if (e.target.type === "checkbox") return;
+      // Ignoruj kliknięcie, jeśli kliknięto na checkbox lub jest to przycisk dodawania
+      if (
+        e.target.type === "checkbox" ||
+        this.classList.contains("add-mockup-button")
+      )
+        return;
 
       const mockupPath = this.getAttribute("data-mockup");
       changeMockup(mockupPath);
@@ -95,15 +99,26 @@ function setupThumbnailListeners() {
       console.log("Wybrane mockupy:", selectedMockups);
     });
   });
+
+  // Dodaj obsługę przycisku dodawania mockupów
+  const addMockupButton = document.querySelector(".add-mockup-button");
+  if (addMockupButton) {
+    addMockupButton.addEventListener("click", function () {
+      window.location.href = "dodaj.html";
+    });
+  }
 }
 
 // Funkcja aktualizująca zaznaczenie miniaturki
 function updateMockupThumbnailSelection(selectedMockup) {
   mockupThumbnails.forEach((thumbnail) => {
-    if (thumbnail.getAttribute("data-mockup") === selectedMockup) {
-      thumbnail.classList.add("active");
-    } else {
-      thumbnail.classList.remove("active");
+    // Pomijamy przycisk dodawania przy aktualizowaniu zaznaczenia
+    if (!thumbnail.classList.contains("add-mockup-button")) {
+      if (thumbnail.getAttribute("data-mockup") === selectedMockup) {
+        thumbnail.classList.add("active");
+      } else {
+        thumbnail.classList.remove("active");
+      }
     }
   });
 }
@@ -682,6 +697,17 @@ function generateMockupThumbnails(mockupPaths) {
 
     mockupGallery.innerHTML += thumbnailHTML;
   });
+
+  // Dodajemy przycisk dodawania nowych mockupów na końcu galerii
+  const addButtonHTML = `
+    <div class="mockup-thumbnail window-frame add-mockup-button" title="Dodaj nowy mockup">
+      <div class="window-content">
+        <div class="add-button-content">+</div>
+      </div>
+    </div>
+  `;
+
+  mockupGallery.innerHTML += addButtonHTML;
 
   // Ustaw pierwszy mockup jako aktywny
   if (mockupPaths.length > 0) {
