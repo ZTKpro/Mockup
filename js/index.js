@@ -9,7 +9,9 @@ const dropArea = document.getElementById("drop-area");
 const dropText = document.querySelector(".drop-text");
 const uploadText = document.querySelector(".upload-text");
 const mockupGallery = document.getElementById("mockup-gallery");
-const downloadSelectedMockups = document.getElementById("download-selected-mockups");
+const downloadSelectedMockups = document.getElementById(
+  "download-selected-mockups"
+);
 
 // Lista dostępnych mockupów
 const mockupFiles = [];
@@ -313,17 +315,17 @@ moveYSlider.addEventListener("input", function () {
 });
 
 // Obsługa przycisku pobierania wszystkich wybranych mockupów
-downloadSelectedMockups.addEventListener("click", function() {
+downloadSelectedMockups.addEventListener("click", function () {
   if (selectedMockups.length === 0) {
     alert("Najpierw wybierz mockupy do pobrania!");
     return;
   }
-  
+
   if (!userImageLoaded) {
     alert("Najpierw wgraj zdjęcie!");
     return;
   }
-  
+
   downloadMultipleMockups();
 });
 
@@ -342,32 +344,34 @@ async function downloadMultipleMockups() {
   progressMsg.style.zIndex = "9999";
   progressMsg.textContent = `Trwa generowanie ${selectedMockups.length} obrazów, proszę czekać...`;
   document.body.appendChild(progressMsg);
-  
+
   // Zapisz aktualny mockup, aby przywrócić go po zakończeniu
   const originalMockup = currentMockupFile;
-  
+
   // Dla każdego wybranego mockupu
   for (let i = 0; i < selectedMockups.length; i++) {
     const mockupPath = selectedMockups[i];
-    progressMsg.textContent = `Generowanie obrazu ${i+1} z ${selectedMockups.length}...`;
-    
+    progressMsg.textContent = `Generowanie obrazu ${i + 1} z ${
+      selectedMockups.length
+    }...`;
+
     // Zmień mockup
-    await new Promise(resolve => {
+    await new Promise((resolve) => {
       changeMockup(mockupPath);
       // Daj czas na załadowanie mockupu
       setTimeout(resolve, 200);
     });
-    
+
     // Pobierz obraz
-    await generateAndDownloadImage(`projekt-etui-${i+1}.png`);
+    await generateAndDownloadImage(`projekt-etui-${i + 1}.png`);
   }
-  
+
   // Przywróć oryginalny mockup
   changeMockup(originalMockup);
-  
+
   // Usuń komunikat o postępie
   document.body.removeChild(progressMsg);
-  
+
   alert(`Pomyślnie wygenerowano ${selectedMockups.length} obrazów!`);
 }
 
@@ -377,7 +381,7 @@ downloadButton.addEventListener("click", function () {
     alert("Najpierw wgraj zdjęcie!");
     return;
   }
-  
+
   // Pokaż dialog wyboru formatu i rozmiaru
   showDownloadOptions();
 });
@@ -396,14 +400,14 @@ function showDownloadOptions() {
   dialogOverlay.style.justifyContent = "center";
   dialogOverlay.style.alignItems = "center";
   dialogOverlay.style.zIndex = "9999";
-  
+
   const dialogBox = document.createElement("div");
   dialogBox.style.backgroundColor = "white";
   dialogBox.style.padding = "20px";
   dialogBox.style.borderRadius = "10px";
   dialogBox.style.width = "300px";
   dialogBox.style.boxShadow = "0 2px 10px rgba(0, 0, 0, 0.2)";
-  
+
   dialogBox.innerHTML = `
     <h3 style="margin-top: 0; text-align: center;">Opcje pobierania</h3>
     
@@ -430,73 +434,65 @@ function showDownloadOptions() {
       <button id="confirm-download" style="padding: 8px 15px; background-color: #27ae60; color: white; border: none; border-radius: 4px; cursor: pointer;">Pobierz</button>
     </div>
   `;
-  
+
   dialogOverlay.appendChild(dialogBox);
   document.body.appendChild(dialogOverlay);
-  
+
   // Obsługa przycisków
-  document.getElementById("cancel-download").addEventListener("click", function() {
-    document.body.removeChild(dialogOverlay);
-  });
-  
-  document.getElementById("confirm-download").addEventListener("click", function() {
-    const format = document.getElementById("format-select").value;
-    const size = document.getElementById("size-select").value;
-    
-    // Usuń dialog
-    document.body.removeChild(dialogOverlay);
-    
-    // Generuj i pobierz obraz
-    const fileName = `projekt-etui-${size}x${size}.${format}`;
-    generateAndDownloadImage(fileName, format, parseInt(size));
-  });
+  document
+    .getElementById("cancel-download")
+    .addEventListener("click", function () {
+      document.body.removeChild(dialogOverlay);
+    });
+
+  document
+    .getElementById("confirm-download")
+    .addEventListener("click", function () {
+      const format = document.getElementById("format-select").value;
+      const size = document.getElementById("size-select").value;
+
+      // Usuń dialog
+      document.body.removeChild(dialogOverlay);
+
+      // Generuj i pobierz obraz
+      const fileName = `projekt-etui-${size}x${size}.${format}`;
+      generateAndDownloadImage(fileName, format, parseInt(size));
+    });
 }
 
-// Funkcja generująca i pobierająca obraz
-async function generateAndDownloadImage(fileName = "projekt-etui.png", format = "png", size = 1200) {
-  // Tworzymy element do pokazywania postępu
+async function generateAndDownloadImage(
+  fileName = "projekt-etui.png",
+  format = "png",
+  size = 1200
+) {
+  // Show progress message
   const progressMsg = document.createElement("div");
-  progressMsg.style.position = "fixed";
-  progressMsg.style.top = "50%";
-  progressMsg.style.left = "50%";
-  progressMsg.style.transform = "translate(-50%, -50%)";
-  progressMsg.style.background = "rgba(0, 0, 0, 0.8)";
-  progressMsg.style.color = "white";
-  progressMsg.style.padding = "20px";
-  progressMsg.style.borderRadius = "10px";
-  progressMsg.style.zIndex = "9999";
+  progressMsg.className = "progress-message";
   progressMsg.textContent = "Trwa generowanie obrazu, proszę czekać...";
   document.body.appendChild(progressMsg);
 
-  // Opóźniamy wykonanie o 100ms, aby komunikat się pokazał
+  // Delay execution to allow progress message to display
   return new Promise((resolve) => {
     setTimeout(async function () {
       try {
-        // Pobierz rozmiary elementu edytora
-        const editorRect = editorContainer.getBoundingClientRect();
-
-        // Użyj określonego rozmiaru z zachowaniem proporcji kwadratu
-        const fixedWidth = size;
-        const fixedHeight = size;
-
-        // Utwórz canvas z odpowiednimi wymiarami
+        // Create canvas with specified dimensions
         const canvas = document.createElement("canvas");
-        canvas.width = fixedWidth;
-        canvas.height = fixedHeight;
+        canvas.width = size;
+        canvas.height = size;
         const ctx = canvas.getContext("2d");
 
-        // Ustawienie białego tła
+        // Set white background
         ctx.fillStyle = "white";
         ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-        // Utwórz obrazy do rysowania
+        // Create image objects
         const mockupImg = new Image();
         const userImg = new Image();
 
         let imagesLoaded = 0;
         let hasError = false;
 
-        // Funkcja obsługująca błędy ładowania obrazów
+        // Error handler function
         function handleImageError(message) {
           hasError = true;
           console.error(message);
@@ -505,77 +501,124 @@ async function generateAndDownloadImage(fileName = "projekt-etui.png", format = 
           resolve(false);
         }
 
-        // Funkcja rysująca - wywołana po załadowaniu wszystkich obrazów
+        // Drawing function - called after both images are loaded
         function drawAndDownload() {
           if (hasError) return resolve(false);
 
           try {
-            // Oblicz współczynnik skalowania
-            const scaleX = canvas.width / editorRect.width;
-            const scaleY = canvas.height / editorRect.height;
+            // Get editor container dimensions for accurate scaling
+            const editorRect = editorContainer.getBoundingClientRect();
 
-            // Pobierz informacje o pozycji i transformacjach obrazu użytkownika
+            // Instead of using the entire editorRect which may have padding/margins,
+            // use the mockup image dimensions as our reference
+            const mockupRect = mockupImage.getBoundingClientRect();
+
+            // Calculate aspect ratio of the mockup in the preview
+            const mockupAspectRatio =
+              mockupImg.naturalWidth / mockupImg.naturalHeight;
+
+            // Calculate the dimensions to maintain proper aspect ratio in the canvas
+            let drawWidth, drawHeight;
+            if (mockupAspectRatio >= 1) {
+              // Wider than tall
+              drawWidth = canvas.width;
+              drawHeight = canvas.width / mockupAspectRatio;
+            } else {
+              // Taller than wide
+              drawHeight = canvas.height;
+              drawWidth = canvas.height * mockupAspectRatio;
+            }
+
+            // Center the mockup on the canvas
+            const mockupX = (canvas.width - drawWidth) / 2;
+            const mockupY = (canvas.height - drawHeight) / 2;
+
+            // Get the z-index to determine drawing order
             const zIndexValue = parseInt(imagePreview.style.zIndex || "5");
-
-            // Określenie, czy obraz jest na wierzchu
             const imageOnTop = zIndexValue >= 10;
 
-            // Rysowanie warstw w odpowiedniej kolejności
+            // Calculate scaling for user image positioning
+            // Use the mockup's displayed size as the reference for scaling
+            const scaleX = drawWidth / mockupRect.width;
+            const scaleY = drawHeight / mockupRect.height;
+
+            // Position user image relative to mockup center
+            const userImageX = canvas.width / 2 + currentX * scaleX;
+            const userImageY = canvas.height / 2 + currentY * scaleY;
+
+            // Draw in the correct order based on z-index
             if (imageOnTop) {
-              // Najpierw mockup, potem obraz użytkownika
-              drawMockupThenUserImage();
+              // Draw mockup first
+              if (mockupAspectRatio !== 1) {
+                // If mockup isn't square, draw with preserved aspect ratio
+                ctx.drawImage(
+                  mockupImg,
+                  mockupX,
+                  mockupY,
+                  drawWidth,
+                  drawHeight
+                );
+              } else {
+                // If mockup is square, fill the canvas
+                ctx.drawImage(mockupImg, 0, 0, canvas.width, canvas.height);
+              }
+
+              // Then draw user image on top
+              drawUserImage();
             } else {
-              // Najpierw obraz użytkownika, potem mockup
-              drawUserImageThenMockup();
+              // Draw user image first
+              drawUserImage();
+
+              // Then draw mockup on top
+              if (mockupAspectRatio !== 1) {
+                // If mockup isn't square, draw with preserved aspect ratio
+                ctx.drawImage(
+                  mockupImg,
+                  mockupX,
+                  mockupY,
+                  drawWidth,
+                  drawHeight
+                );
+              } else {
+                // If mockup is square, fill the canvas
+                ctx.drawImage(mockupImg, 0, 0, canvas.width, canvas.height);
+              }
             }
 
-            // Funkcja rysująca najpierw mockup, potem obraz użytkownika
-            function drawMockupThenUserImage() {
-              // Skaluj mockup do pełnych wymiarów canvasa
-              ctx.drawImage(mockupImg, 0, 0, canvas.width, canvas.height);
-
-              // Narysuj obraz użytkownika
+            // Function to draw the user image with current transformations
+            function drawUserImage() {
               ctx.save();
-              ctx.translate(
-                canvas.width / 2 + currentX * scaleX,
-                canvas.height / 2 + currentY * scaleY
-              );
+              ctx.translate(userImageX, userImageY);
               ctx.rotate((currentRotation * Math.PI) / 180);
               const scaledZoom = currentZoom / 100;
               ctx.scale(scaledZoom, scaledZoom);
-              ctx.drawImage(userImg, -userImg.width / 2, -userImg.height / 2);
+
+              // Calculate dimensions to maintain aspect ratio
+              const userImgWidth = userImg.width;
+              const userImgHeight = userImg.height;
+
+              // Draw user image centered at the current position
+              ctx.drawImage(userImg, -userImgWidth / 2, -userImgHeight / 2);
               ctx.restore();
             }
 
-            // Funkcja rysująca najpierw obraz użytkownika, potem mockup
-            function drawUserImageThenMockup() {
-              // Narysuj obraz użytkownika
-              ctx.save();
-              ctx.translate(
-                canvas.width / 2 + currentX * scaleX,
-                canvas.height / 2 + currentY * scaleY
-              );
-              ctx.rotate((currentRotation * Math.PI) / 180);
-              const scaledZoom = currentZoom / 100;
-              ctx.scale(scaledZoom, scaledZoom);
-              ctx.drawImage(userImg, -userImg.width / 2, -userImg.height / 2);
-              ctx.restore();
-
-              // Skaluj mockup do pełnych wymiarów canvasa
-              ctx.drawImage(mockupImg, 0, 0, canvas.width, canvas.height);
-            }
-
-            // Pobierz obrazek w wybranym formacie
+            // Create and download the image
             if (canvas.toBlob) {
               const mimeType = format === "jpg" ? "image/jpeg" : "image/png";
               const quality = format === "jpg" ? 0.9 : undefined;
-              
-              canvas.toBlob(function (blob) {
-                downloadUsingBlob(blob);
-              }, mimeType, quality);
+
+              canvas.toBlob(
+                function (blob) {
+                  downloadUsingBlob(blob);
+                },
+                mimeType,
+                quality
+              );
             } else {
-              // Fallback
-              const dataURL = canvas.toDataURL(format === "jpg" ? "image/jpeg" : "image/png");
+              // Fallback to dataURL if toBlob not supported
+              const dataURL = canvas.toDataURL(
+                format === "jpg" ? "image/jpeg" : "image/png"
+              );
               downloadUsingDataURL(dataURL);
             }
           } catch (e) {
@@ -586,7 +629,7 @@ async function generateAndDownloadImage(fileName = "projekt-etui.png", format = 
           }
         }
 
-        // Funkcja pobierania przy użyciu Blob
+        // Function to download using Blob (preferred method)
         function downloadUsingBlob(blob) {
           try {
             const url = URL.createObjectURL(blob);
@@ -596,7 +639,7 @@ async function generateAndDownloadImage(fileName = "projekt-etui.png", format = 
             document.body.appendChild(a);
             a.click();
 
-            // Dajemy przeglądarce czas na rozpoczęcie pobierania
+            // Give the browser time to start downloading
             setTimeout(function () {
               document.body.removeChild(a);
               URL.revokeObjectURL(url);
@@ -611,7 +654,7 @@ async function generateAndDownloadImage(fileName = "projekt-etui.png", format = 
           }
         }
 
-        // Funkcja pobierania przy użyciu dataURL (fallback)
+        // Fallback download method using dataURL
         function downloadUsingDataURL(dataURL) {
           try {
             const a = document.createElement("a");
@@ -620,7 +663,6 @@ async function generateAndDownloadImage(fileName = "projekt-etui.png", format = 
             document.body.appendChild(a);
             a.click();
 
-            // Dajemy przeglądarce czas na rozpoczęcie pobierania
             setTimeout(function () {
               document.body.removeChild(a);
               document.body.removeChild(progressMsg);
@@ -634,7 +676,7 @@ async function generateAndDownloadImage(fileName = "projekt-etui.png", format = 
           }
         }
 
-        // Obsługa błędów ładowania obrazów
+        // Error handlers for image loading
         mockupImg.onerror = function () {
           handleImageError(
             "Nie można załadować obrazu mockupu: " + mockupImage.src
@@ -647,7 +689,7 @@ async function generateAndDownloadImage(fileName = "projekt-etui.png", format = 
           );
         };
 
-        // Załaduj obrazy
+        // Load the images
         mockupImg.onload = function () {
           imagesLoaded++;
           if (imagesLoaded === 2) drawAndDownload();
@@ -658,16 +700,14 @@ async function generateAndDownloadImage(fileName = "projekt-etui.png", format = 
           if (imagesLoaded === 2) drawAndDownload();
         };
 
-        // Ustaw obrazy do załadowania
+        // Set image sources with cache prevention timestamp
         mockupImg.crossOrigin = "Anonymous";
         userImg.crossOrigin = "Anonymous";
-
-        // Zapobieganie problemom z cache
         const timestamp = new Date().getTime();
         mockupImg.src = mockupImage.src + "?t=" + timestamp;
         userImg.src = imagePreview.src;
 
-        // Timeout zabezpieczający
+        // Safety timeout
         setTimeout(function () {
           if (imagesLoaded < 2 && !hasError) {
             handleImageError("Przekroczono limit czasu ładowania obrazów");
@@ -862,16 +902,16 @@ function generateMockupThumbnails(mockupPaths) {
     const checkboxes = document.querySelectorAll(".mockup-checkbox");
     checkboxes.forEach((checkbox) => {
       checkbox.checked = true;
-      
+
       // Dodaj wszystkie mockupy do wybranych
       const mockupDiv = checkbox.closest(".mockup-thumbnail");
       const mockupPath = mockupDiv.getAttribute("data-mockup");
-      
+
       if (!selectedMockups.includes(mockupPath)) {
         selectedMockups.push(mockupPath);
       }
     });
-    
+
     console.log("Wszystkie zaznaczone:", selectedMockups);
   });
 
@@ -880,7 +920,7 @@ function generateMockupThumbnails(mockupPaths) {
     checkboxes.forEach((checkbox) => {
       checkbox.checked = false;
     });
-    
+
     // Wyczyść listę wybranych mockupów
     selectedMockups = [];
     console.log("Wszystkie odznaczone");
@@ -911,7 +951,7 @@ window.onload = async function () {
 // Funkcja sprawdzająca autoryzację
 function checkAuth() {
   const hasAccess = sessionStorage.getItem("hasAccess") === "true";
-  
+
   // Jeśli nie ma dostępu, przekieruj do strony hasła
   if (!hasAccess) {
     window.location.href = "password.html";
