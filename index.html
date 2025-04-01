@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Edytor etui na telefon</title>
-    <link rel="stylesheet" href="./css/styles.css">
+    <link rel="stylesheet" href="./css/styles.css" />
   </head>
   <body>
     <div class="container">
@@ -15,8 +15,8 @@
             <button id="select-all-mockups">Zaznacz wszystkie</button>
             <button id="deselect-all-mockups">Odznacz wszystkie</button>
           </div>
-          <button id="download-selected-mockups" class="download" style="width: 96%">
-            Pobierz zaznaczone jako PNG
+          <button id="download-selected-mockups" class="download">
+            Pobierz zaznaczone
           </button>
           <div id="mockup-gallery" class="mockup-gallery">
             <!-- Mockupy zostaną dodane dynamicznie przez JavaScript -->
@@ -114,13 +114,17 @@
               <button id="reset-button" class="reset">Resetuj wszystko</button>
               <button id="center-button">Wyśrodkuj</button>
               <button id="download-button" class="download">
-                Pobierz jako PNG
+                Pobierz jako PNG/JPG
               </button>
             </div>
           </div>
 
           <div class="editor-container" id="editor-container">
-            <img id="image-preview" src="./placeholder.png" alt="Twój projekt" />
+            <img
+              id="image-preview"
+              src="./placeholder.png"
+              alt="Twój projekt"
+            />
             <img id="mockup-image" src="./1.png" alt="Mockup telefonu" />
           </div>
           <p class="drag-instruction" id="drag-instruction">
