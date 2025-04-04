@@ -124,14 +124,30 @@ app.get("/api/mockups", (req, res) => {
   }
 });
 
-// API endpoint to delete a mockup
 app.delete("/api/mockups/:id", (req, res) => {
   try {
-    const mockupId = req.params.id;
-    const mockupPath = path.join(mockupDir, `${mockupId}.png`);
+    const mockupId = parseInt(req.params.id, 10);
 
-    // Check if file exists
-    if (fs.existsSync(mockupPath)) {
+    // Read the mockups directory to find the file with matching ID
+    const files = fs.readdirSync(mockupDir);
+    let mockupFile = null;
+
+    // Find the file with the matching ID
+    for (const file of files) {
+      if (file.endsWith(".png")) {
+        const fileNameWithoutExt = path.basename(file, ".png");
+        const id = parseInt(fileNameWithoutExt, 10) || files.indexOf(file) + 1;
+
+        if (id === mockupId) {
+          mockupFile = file;
+          break;
+        }
+      }
+    }
+
+    if (mockupFile) {
+      const mockupPath = path.join(mockupDir, mockupFile);
+
       // Delete the file
       fs.unlinkSync(mockupPath);
       res.json({ success: true, message: "Mockup usunięty pomyślnie" });
