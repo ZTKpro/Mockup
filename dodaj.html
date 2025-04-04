@@ -266,7 +266,9 @@
             Mockup powinien przedstawiać obrys telefonu z przezroczystą częścią
             w miejscu, gdzie będzie wstawiony obraz
           </li>
-          <li>Zmiany w mockupach będą dostępne w edytorze po odświeżeniu strony</li>
+          <li>
+            Zmiany w mockupach będą dostępne w edytorze po odświeżeniu strony
+          </li>
         </ul>
       </div>
 
@@ -275,11 +277,13 @@
         <div class="section-header">
           <h3>Istniejące mockupy</h3>
         </div>
-        <div class="loading-indicator" id="loading-indicator">Wczytywanie dostępnych mockupów...</div>
+        <div class="loading-indicator" id="loading-indicator">
+          Wczytywanie dostępnych mockupów...
+        </div>
         <div class="mockup-gallery" id="mockup-gallery">
           <!-- Mockupy zostaną dodane dynamicznie przez JavaScript -->
         </div>
-        <div class="no-mockups" id="no-mockups" style="display: none;">
+        <div class="no-mockups" id="no-mockups" style="display: none">
           Nie znaleziono żadnych mockupów. Dodaj nowe mockupy, aby rozpocząć.
         </div>
         <div class="upload-indicator" id="upload-indicator">
@@ -290,7 +294,6 @@
       <!-- Button to add new mockups -->
       <button class="add-new-btn" id="add-new-btn">+ Dodaj nowe mockupy</button>
       <input type="file" id="file-input" accept="image/png" multiple />
-
     </div>
 
     <script>
@@ -303,72 +306,56 @@
         const addNewBtn = document.getElementById("add-new-btn");
         const existingMockups = document.getElementById("existing-mockups");
         const uploadIndicator = document.getElementById("upload-indicator");
-        
-        // Obsługa kliknięcia przycisku dodawania nowych mockupów
+
+        // Click handler for add button
         addNewBtn.addEventListener("click", () => {
           fileInput.click();
         });
-        
-        // Lista dostępnych mockupów
+
+        // Available mockup list
         let mockupFiles = [];
         let mockupItems = [];
-        
-        // Funkcja sprawdzająca dostępność pliku
-        async function checkFileExists(url) {
+
+        // Function to initialize mockup gallery
+        async function initializeMockupGallery() {
           try {
-            const response = await fetch(url, { method: "HEAD" });
-            return response.ok;
+            // Show loading indicator
+            loadingIndicator.style.display = "block";
+
+            // Fetch mockups from API
+            const availableMockups = await fetchMockups();
+
+            // Hide loading indicator
+            loadingIndicator.style.display = "none";
+
+            // Generate mockup manager interface
+            generateMockupManager(availableMockups);
           } catch (error) {
-            console.error("Błąd sprawdzania pliku:", error);
-            return false;
+            console.error("Error initializing mockup gallery:", error);
+            loadingIndicator.textContent = "Błąd wczytywania mockupów.";
           }
         }
 
-        // Funkcja skanująca dostępne mockupy
-        async function scanMockups() {
-          const mockupFolder = "./mockup/"; // Folder z mockupami
-          const maxFilesToCheck = 50; // Maksymalna liczba plików do sprawdzenia
+        // Function to fetch mockups from API
+        async function fetchMockups() {
+          try {
+            const response = await fetch("/api/mockups");
+            const data = await response.json();
 
-          mockupFiles = [];
-          
-          // Sprawdź dostępność każdego pliku od 1.png do maxFilesToCheck.png
-          for (let i = 1; i <= maxFilesToCheck; i++) {
-            const fileName = `${i}.png`;
-            const filePath = `${mockupFolder}${fileName}`;
-
-            const exists = await checkFileExists(filePath);
-            if (exists) {
-              mockupFiles.push({
-                path: filePath,
-                id: i,
-                fileName: fileName
-              });
+            if (data.success) {
+              return data.mockups;
+            } else {
+              throw new Error(data.error || "Unknown error");
             }
+          } catch (error) {
+            console.error("Error fetching mockups:", error);
+            return [];
           }
-
-          // Jeśli nie znaleziono żadnych plików w folderze mockup, sprawdź w folderze głównym
-          if (mockupFiles.length === 0) {
-            for (let i = 1; i <= maxFilesToCheck; i++) {
-              const fileName = `${i}.png`;
-              const filePath = `./${fileName}`;
-
-              const exists = await checkFileExists(filePath);
-              if (exists) {
-                mockupFiles.push({
-                  path: filePath,
-                  id: i,
-                  fileName: fileName
-                });
-              }
-            }
-          }
-
-          return mockupFiles;
         }
 
-        // Funkcja generująca interface zarządzania mockupami
+        // Function to generate mockup manager interface
         function generateMockupManager(mockups) {
-          mockupGallery.innerHTML = ""; // Wyczyść galerię
+          mockupGallery.innerHTML = ""; // Clear gallery
 
           if (mockups.length === 0) {
             noMockups.style.display = "block";
@@ -377,10 +364,10 @@
             noMockups.style.display = "none";
           }
 
-          // Sortuj mockupy według ID
+          // Sort mockups by ID
           mockups.sort((a, b) => a.id - b.id);
 
-          mockups.forEach((mockup, index) => {
+          mockups.forEach((mockup) => {
             const itemHTML = `
               <div class="mockup-item" data-id="${mockup.id}" data-path="${mockup.path}">
                 <div class="mockup-thumbnail">
@@ -398,66 +385,76 @@
             mockupGallery.innerHTML += itemHTML;
           });
 
-          // Przypisz obsługę przycisków do nowo wygenerowanych elementów
+          // Assign listeners to newly generated elements
           setupMockupItemListeners();
         }
 
-        // Funkcja przypisująca obsługę interakcji do elementów mockupów
+        // Function to handle clicks on mockup items
         function setupMockupItemListeners() {
           mockupItems = document.querySelectorAll(".mockup-item");
-          
+
           mockupItems.forEach((item) => {
-            // Przycisk usuwania mockupu
+            // Delete button
             const deleteBtn = item.querySelector(".action-btn.delete");
-            deleteBtn.addEventListener("click", function(e) {
+            deleteBtn.addEventListener("click", async function (e) {
               e.stopPropagation();
-              
+
               if (confirm("Czy na pewno chcesz usunąć ten mockup?")) {
-                // W rzeczywistej implementacji tutaj byłby kod do usunięcia pliku na serwerze
-                item.remove();
-                
-                // Sprawdź, czy usunięto wszystkie mockupy
-                if (document.querySelectorAll(".mockup-item").length === 0) {
-                  noMockups.style.display = "block";
+                try {
+                  const mockupId = item.getAttribute("data-id");
+
+                  // Show loading indicator
+                  uploadIndicator.style.display = "flex";
+                  uploadIndicator.querySelector(
+                    ".upload-indicator-text"
+                  ).textContent = "Usuwanie mockupu...";
+
+                  // Call API to delete mockup
+                  const response = await fetch(`/api/mockups/${mockupId}`, {
+                    method: "DELETE",
+                  });
+
+                  const result = await response.json();
+
+                  // Hide loading indicator
+                  uploadIndicator.style.display = "none";
+
+                  if (result.success) {
+                    // Remove item from DOM
+                    item.remove();
+
+                    // Check if all mockups were removed
+                    if (
+                      document.querySelectorAll(".mockup-item").length === 0
+                    ) {
+                      noMockups.style.display = "block";
+                    }
+                  } else {
+                    alert(`Błąd: ${result.error}`);
+                  }
+                } catch (error) {
+                  uploadIndicator.style.display = "none";
+                  console.error("Error deleting mockup:", error);
+                  alert("Wystąpił błąd podczas usuwania mockupu.");
                 }
               }
             });
-            
-            // Obsługa kliknięcia na miniaturkę (zaznaczenie/odznaczenie)
+
+            // Click handler for thumbnail (select/deselect)
             const thumbnail = item.querySelector(".mockup-thumbnail");
-            thumbnail.addEventListener("click", function() {
+            thumbnail.addEventListener("click", function () {
               item.classList.toggle("active");
             });
           });
         }
 
-        // Inicjalizacja galerii mockupów
-        async function initializeMockupGallery() {
-          try {
-            // Pokaż wskaźnik ładowania
-            loadingIndicator.style.display = "block";
-            
-            // Skanuj dostępne mockupy
-            const availableMockups = await scanMockups();
-            
-            // Ukryj wskaźnik ładowania
-            loadingIndicator.style.display = "none";
-            
-            // Generuj interfejs zarządzania mockupami
-            generateMockupManager(availableMockups);
-          } catch (error) {
-            console.error("Błąd inicjalizacji galerii mockupów:", error);
-            loadingIndicator.textContent = "Błąd wczytywania mockupów.";
-          }
-        }
-
-        // Inicjalizacja galerii po załadowaniu strony
+        // Initialize gallery on page load
         initializeMockupGallery();
 
-        // Obsługa wyboru plików przez input
+        // File input change handler
         fileInput.addEventListener("change", handleFiles);
 
-        // Obsługa drag & drop na całym obszarze istniejących mockupów
+        // Drag & drop handlers
         ["dragenter", "dragover", "dragleave", "drop"].forEach((eventName) => {
           existingMockups.addEventListener(eventName, preventDefaults);
         });
@@ -485,15 +482,15 @@
           handleFiles({ target: { files } });
         });
 
-        // Funkcja obsługująca wgrane pliki
-        function handleFiles(e) {
+        // Function to handle uploaded files
+        async function handleFiles(e) {
           const files = e.target.files;
 
           if (files.length === 0) {
             return;
           }
 
-          // Sprawdź, czy wszystkie pliki są w formacie PNG
+          // Check if all files are PNG
           let allPNG = true;
           for (let i = 0; i < files.length; i++) {
             if (!files[i].type.match("image/png")) {
@@ -506,27 +503,71 @@
             alert("Można wgrać tylko pliki PNG! Wybierz ponownie.");
             return;
           }
-          
-          // Pokaż wskaźnik uploadu
+
+          // Show upload indicator
           uploadIndicator.style.display = "flex";
-          
-          // W prawdziwej aplikacji tutaj byłby kod do zapisywania plików na serwerze
-          // Symulujemy proces zapisywania plików
-          setTimeout(() => {
-            // Ukryj wskaźnik uploadu
+
+          try {
+            // Determine next mockup number
+            const existingMockups = await fetchMockups();
+            let nextMockupNumber = 1;
+
+            if (existingMockups.length > 0) {
+              // Find the highest ID and add 1
+              nextMockupNumber =
+                Math.max(...existingMockups.map((m) => m.id)) + 1;
+            }
+
+            // Upload each file
+            const uploadPromises = [];
+
+            for (let i = 0; i < files.length; i++) {
+              const formData = new FormData();
+              formData.append("mockup", files[i]);
+              formData.append("mockupNumber", nextMockupNumber + i);
+
+              const uploadPromise = fetch("/api/upload/mockup", {
+                method: "POST",
+                body: formData,
+              }).then((response) => response.json());
+
+              uploadPromises.push(uploadPromise);
+            }
+
+            // Wait for all uploads to complete
+            const results = await Promise.all(uploadPromises);
+
+            // Hide upload indicator
             uploadIndicator.style.display = "none";
-            
-            // Zapisz informację, że mockupy zostały dodane (w prawdziwej aplikacji byłoby to na serwerze)
-            localStorage.setItem("mockupsAdded", "true");
-            
-            alert(`Pomyślnie dodano ${files.length} mockup${files.length > 1 ? "ów" : ""}!`);
-            
-            // Odśwież galerię istniejących mockupów
+
+            // Check for errors
+            const errors = results.filter((result) => !result.success);
+
+            if (errors.length > 0) {
+              alert(
+                `Wystąpiły błędy podczas przesyłania plików: ${errors
+                  .map((e) => e.error)
+                  .join(", ")}`
+              );
+            } else {
+              alert(
+                `Pomyślnie dodano ${files.length} mockup${
+                  files.length > 1 ? "ów" : ""
+                }!`
+              );
+            }
+
+            // Refresh mockup gallery
             initializeMockupGallery();
-            
-            // Resetuj input, aby możliwe było wybranie tych samych plików ponownie
+
+            // Reset file input
             fileInput.value = "";
-          }, 2000);
+          } catch (error) {
+            console.error("Error uploading files:", error);
+            uploadIndicator.style.display = "none";
+            alert("Wystąpił błąd podczas przesyłania plików.");
+            fileInput.value = "";
+          }
         }
       });
     </script>

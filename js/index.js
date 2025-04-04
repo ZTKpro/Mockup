@@ -203,6 +203,69 @@ function handleFileSelect(e) {
   handleFiles(files);
 }
 
+async function handleFiles(files) {
+  if (files.length && files[0].type.match("image.*")) {
+    try {
+      // Show a loading message
+      const loadingMsg = document.createElement("div");
+      loadingMsg.style.position = "fixed";
+      loadingMsg.style.top = "50%";
+      loadingMsg.style.left = "50%";
+      loadingMsg.style.transform = "translate(-50%, -50%)";
+      loadingMsg.style.background = "rgba(0, 0, 0, 0.8)";
+      loadingMsg.style.color = "white";
+      loadingMsg.style.padding = "20px";
+      loadingMsg.style.borderRadius = "10px";
+      loadingMsg.style.zIndex = "9999";
+      loadingMsg.textContent = "Wgrywanie obrazu...";
+      document.body.appendChild(loadingMsg);
+
+      // Create a FormData object
+      const formData = new FormData();
+      formData.append("image", files[0]);
+
+      // Send the file to the server
+      const response = await fetch("/api/upload/user-image", {
+        method: "POST",
+        body: formData,
+      });
+
+      const result = await response.json();
+      document.body.removeChild(loadingMsg);
+
+      if (result.success) {
+        // Display image preview
+        imagePreview.src = result.filePath;
+        imagePreview.onload = function () {
+          // Show controls and instructions
+          controls.style.display = "block";
+          dragInstruction.style.display = "block";
+
+          // Set flag that user image is loaded
+          userImageLoaded = true;
+
+          // Reset settings
+          resetTransformations();
+
+          // Center the image
+          centerImage();
+
+          // Default to setting image under mockup
+          imagePreview.style.zIndex = "5";
+        };
+      } else {
+        alert("Error: " + (result.error || "Failed to upload image"));
+      }
+    } catch (error) {
+      console.error("Error uploading image:", error);
+      alert("Wystąpił błąd podczas przesyłania obrazu.");
+    }
+  } else {
+    alert("Proszę wybrać plik ze zdjęciem");
+  }
+}
+
+
 // Obsługa przesuwania obrazu
 imagePreview.addEventListener("mousedown", startDrag);
 window.addEventListener("mouseup", stopDrag);
@@ -815,36 +878,20 @@ async function checkFileExists(url) {
 
 // Funkcja skanująca dostępne mockupy
 async function scanMockups() {
-  const mockupFolders = ["./mockup/", "./"]; // Sprawdź zarówno folder mockup jak i folder główny
-  const maxFilesToCheck = 20; // Maksymalna liczba plików do sprawdzenia
+  try {
+    const response = await fetch("/api/mockups");
+    const data = await response.json();
 
-  // Wyczyść tablicę mockupów przed skanowaniem
-  mockupFiles.length = 0;
-
-  // Sprawdź każdy folder
-  for (const folder of mockupFolders) {
-    // Sprawdź dostępność każdego pliku od 1.png do maxFilesToCheck.png
-    for (let i = 1; i <= maxFilesToCheck; i++) {
-      const fileName = `${i}.png`;
-      const filePath = `${folder}${fileName}`;
-
-      const exists = await checkFileExists(filePath);
-      if (exists) {
-        mockupFiles.push(filePath);
-      }
+    if (data.success) {
+      return data.mockups.map((mockup) => mockup.path);
+    } else {
+      console.error("Error fetching mockups:", data.error);
+      return [];
     }
-
-    // Jeśli znaleźliśmy mockupy w tym folderze, nie sprawdzaj kolejnego
-    if (mockupFiles.length > 0) {
-      console.log(
-        `Znaleziono ${mockupFiles.length} mockupów w folderze ${folder}`
-      );
-      break;
-    }
+  } catch (error) {
+    console.error("Error scanning mockups:", error);
+    return [];
   }
-
-  console.log("Dostępne mockupy:", mockupFiles);
-  return mockupFiles;
 }
 
 // Funkcja generująca miniatury mockupów
