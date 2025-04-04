@@ -1,0 +1,8 @@
+node_modules/
+uploads/*
+!uploads/mockups/
+!uploads/user-images/
+uploads/mockups/*
+uploads/user-images/*
+!uploads/mockups/.gitkeep
+!uploads/user-images/.gitkeep
