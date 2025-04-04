@@ -143,10 +143,20 @@
         background-color: #f8f9fa;
       }
 
-      .mockup-number {
+      .mockup-name {
         font-weight: bold;
         color: #333;
         padding: 4px 8px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        max-width: 70%;
+      }
+
+      .mockup-id {
+        color: #777;
+        font-size: 0.8em;
+        margin-left: 4px;
       }
 
       .mockup-actions {
@@ -242,6 +252,43 @@
         margin-bottom: 15px;
       }
 
+      /* Upload form styles */
+      .upload-form {
+        background-color: #f8f9fa;
+        padding: 20px;
+        border-radius: 8px;
+        margin-bottom: 20px;
+        border: 1px solid #dee2e6;
+        display: none;
+      }
+
+      .form-group {
+        margin-bottom: 15px;
+      }
+
+      .form-group label {
+        display: block;
+        margin-bottom: 5px;
+        font-weight: bold;
+      }
+
+      .form-group input[type="text"] {
+        width: 100%;
+        padding: 8px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+      }
+
+      .upload-form-btns {
+        display: flex;
+        justify-content: space-between;
+        margin-top: 20px;
+      }
+
+      .upload-form-btns button {
+        padding: 8px 16px;
+      }
+
       /* Responsive adjustments */
       @media (max-width: 768px) {
         .mockup-gallery {
@@ -270,6 +317,20 @@
             Zmiany w mockupach będą dostępne w edytorze po odświeżeniu strony
           </li>
         </ul>
+      </div>
+
+      <!-- Upload form that appears when 'Add new mockups' is clicked -->
+      <div class="upload-form" id="upload-form">
+        <h3>Dodaj nowe mockupy</h3>
+        <div class="form-group">
+          <label for="mockup-name">Nazwa mockupu (np. "iPhone 13 Pro", "Galaxy S22"):</label>
+          <input type="text" id="mockup-name" placeholder="Wprowadź nazwę dla mockupu" />
+        </div>
+        <p>Możesz wybrać wiele plików - każdy otrzyma tę samą nazwę z dodanym numerem.</p>
+        <div class="upload-form-btns">
+          <button class="back-btn" id="cancel-upload">Anuluj</button>
+          <button class="add-new-btn" id="select-files-btn">Wybierz pliki</button>
+        </div>
       </div>
 
       <!-- Existing mockups section -->
@@ -306,9 +367,24 @@
         const addNewBtn = document.getElementById("add-new-btn");
         const existingMockups = document.getElementById("existing-mockups");
         const uploadIndicator = document.getElementById("upload-indicator");
+        const uploadForm = document.getElementById("upload-form");
+        const mockupNameInput = document.getElementById("mockup-name");
+        const cancelUploadBtn = document.getElementById("cancel-upload");
+        const selectFilesBtn = document.getElementById("select-files-btn");
 
-        // Click handler for add button
+        // Click handlers for the form
         addNewBtn.addEventListener("click", () => {
+          uploadForm.style.display = "block";
+          addNewBtn.style.display = "none";
+        });
+
+        cancelUploadBtn.addEventListener("click", () => {
+          uploadForm.style.display = "none";
+          addNewBtn.style.display = "block";
+          mockupNameInput.value = "";
+        });
+
+        selectFilesBtn.addEventListener("click", () => {
           fileInput.click();
         });
 
@@ -368,13 +444,16 @@
           mockups.sort((a, b) => a.id - b.id);
 
           mockups.forEach((mockup) => {
+            // Upewnij się, że nazwa mockupu jest czysta i nie zawiera znaczników formatowania
+            const cleanName = mockup.name.replace(/\*/g, '').replace(/#/g, '').trim();
+            
             const itemHTML = `
               <div class="mockup-item" data-id="${mockup.id}" data-path="${mockup.path}">
                 <div class="mockup-thumbnail">
-                  <img src="${mockup.path}" alt="Mockup ${mockup.id}" />
+                  <img src="${mockup.path}" alt="${cleanName}" />
                 </div>
                 <div class="mockup-controls">
-                  <div class="mockup-number">#${mockup.id}</div>
+                  <div class="mockup-name">${cleanName} <span class="mockup-id">#${mockup.id}</span></div>
                   <div class="mockup-actions">
                     <button class="action-btn delete" title="Usuń mockup">×</button>
                   </div>
@@ -504,6 +583,9 @@
             return;
           }
 
+          // Get mockup name from input
+          const mockupName = mockupNameInput.value.trim() || "Mockup";
+
           // Show upload indicator
           uploadIndicator.style.display = "flex";
 
@@ -525,6 +607,12 @@
               const formData = new FormData();
               formData.append("mockup", files[i]);
               formData.append("mockupNumber", nextMockupNumber + i);
+              
+              // Add name with a counter for multiple files
+              const nameWithCounter = files.length > 1 
+                ? `${mockupName} ${i + 1}` 
+                : mockupName;
+              formData.append("mockupName", nameWithCounter);
 
               const uploadPromise = fetch("/api/upload/mockup", {
                 method: "POST",
@@ -539,6 +627,11 @@
 
             // Hide upload indicator
             uploadIndicator.style.display = "none";
+            
+            // Hide the upload form and show the add button again
+            uploadForm.style.display = "none";
+            addNewBtn.style.display = "block";
+            mockupNameInput.value = "";
 
             // Check for errors
             const errors = results.filter((result) => !result.success);
@@ -565,6 +658,8 @@
           } catch (error) {
             console.error("Error uploading files:", error);
             uploadIndicator.style.display = "none";
+            uploadForm.style.display = "none";
+            addNewBtn.style.display = "block";
             alert("Wystąpił błąd podczas przesyłania plików.");
             fileInput.value = "";
           }

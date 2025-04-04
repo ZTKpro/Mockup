@@ -26,9 +26,17 @@ const storage = multer.diskStorage({
     cb(null, destFolder);
   },
   filename: function (req, file, cb) {
-    // For mockups, use the specified number if provided, otherwise use timestamp
-    if (req.path.includes("mockup") && req.body.mockupNumber) {
-      cb(null, `${req.body.mockupNumber}.png`);
+    // For mockups, use the specified number and name if provided
+    if (req.path.includes("mockup")) {
+      const mockupNumber = req.body.mockupNumber || Date.now();
+      // Sanitize mockup name: replace spaces with underscores and remove special characters
+      const mockupName = req.body.mockupName
+        ? req.body.mockupName
+            .replace(/[^a-zA-Z0-9ąćęłńóśźżĄĆĘŁŃÓŚŹŻ\s_-]/g, "")
+            .replace(/\s+/g, "_")
+        : "mockup";
+
+      cb(null, `${mockupNumber}_${mockupName}.png`);
     } else {
       const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
       cb(null, uniqueSuffix + path.extname(file.originalname));
@@ -83,11 +91,12 @@ app.post("/api/upload/mockup", upload.single("mockup"), (req, res) => {
     return res.status(400).json({ error: "Nie przesłano pliku" });
   }
 
-  // Return the file path
+  // Return the file path and additional info
   res.json({
     success: true,
     filePath: `/uploads/mockups/${req.file.filename}`,
     mockupNumber: req.body.mockupNumber || null,
+    mockupName: req.body.mockupName || "mockup",
   });
 });
 
@@ -103,11 +112,29 @@ app.get("/api/mockups", (req, res) => {
     files.forEach((file) => {
       if (file.endsWith(".png")) {
         const filePath = `/uploads/mockups/${file}`;
-        const fileNameWithoutExt = path.basename(file, ".png");
-        const id = parseInt(fileNameWithoutExt, 10) || files.indexOf(file) + 1;
+
+        // Extract ID and name from the filename
+        // Format: "id_name.png" or just "id.png" for older files
+        let id, name;
+
+        if (file.includes("_")) {
+          // New format: id_name.png
+          const parts = path.basename(file, ".png").split("_");
+          id = parseInt(parts[0], 10) || files.indexOf(file) + 1;
+          name = parts.slice(1).join(" "); // Convert underscores to spaces for display
+        } else {
+          // Old format: id.png
+          const fileNameWithoutExt = path.basename(file, ".png");
+          id = parseInt(fileNameWithoutExt, 10) || files.indexOf(file) + 1;
+          name = `Mockup ${id}`; // Default name for backward compatibility
+        }
+
+        // Sanitize name - remove any markdown-like formatting
+        name = name.replace(/\*/g, "").replace(/#/g, "").trim();
 
         mockups.push({
           id: id,
+          name: name,
           path: filePath,
           fileName: file,
         });
@@ -135,8 +162,20 @@ app.delete("/api/mockups/:id", (req, res) => {
     // Find the file with the matching ID
     for (const file of files) {
       if (file.endsWith(".png")) {
-        const fileNameWithoutExt = path.basename(file, ".png");
-        const id = parseInt(fileNameWithoutExt, 10) || files.indexOf(file) + 1;
+        let id;
+
+        if (file.includes("_")) {
+          // New format: id_name.png
+          id = parseInt(file.split("_")[0], 10);
+        } else {
+          // Old format: id.png
+          id = parseInt(path.basename(file, ".png"), 10);
+        }
+
+        // If parsing fails, fall back to index
+        if (isNaN(id)) {
+          id = files.indexOf(file) + 1;
+        }
 
         if (id === mockupId) {
           mockupFile = file;

@@ -16,6 +16,7 @@ const downloadSelectedMockups = document.getElementById(
 // Lista dostępnych mockupów
 const mockupFiles = [];
 let mockupThumbnails = [];
+let mockupsData = []; // Przechowuje dane mockupów razem z ich nazwami
 
 // Suwaki i przyciski kontrolne
 const rotateSlider = document.getElementById("rotate-slider");
@@ -43,7 +44,9 @@ const moveYValue = document.getElementById("move-y-value");
 const downloadButton = document.getElementById("download-button");
 
 // Aktualny mockup
-let currentMockupFile = "./mockup/1.png";
+let currentMockupFile = "";
+let currentMockupName = ""; // Przechowuje nazwę aktualnego mockupu
+let currentMockupId = 0; // Przechowuje ID aktualnego mockupu
 
 // Zmienne stanu
 let isDragging = false;
@@ -75,7 +78,10 @@ function setupThumbnailListeners() {
         return;
 
       const mockupPath = this.getAttribute("data-mockup");
-      changeMockup(mockupPath);
+      const mockupId = parseInt(this.getAttribute("data-id"), 10);
+      const mockupName = this.getAttribute("data-name");
+
+      changeMockup(mockupPath, mockupName, mockupId);
       updateMockupThumbnailSelection(mockupPath);
     });
   });
@@ -88,15 +94,23 @@ function setupThumbnailListeners() {
 
       const mockupDiv = this.closest(".mockup-thumbnail");
       const mockupPath = mockupDiv.getAttribute("data-mockup");
+      const mockupId = parseInt(mockupDiv.getAttribute("data-id"), 10);
+      const mockupName = mockupDiv.getAttribute("data-name");
 
       if (this.checked) {
         // Dodaj do wybranych mockupów
         if (!selectedMockups.includes(mockupPath)) {
-          selectedMockups.push(mockupPath);
+          selectedMockups.push({
+            path: mockupPath,
+            id: mockupId,
+            name: mockupName,
+          });
         }
       } else {
         // Usuń z wybranych mockupów
-        selectedMockups = selectedMockups.filter((path) => path !== mockupPath);
+        selectedMockups = selectedMockups.filter(
+          (mockup) => mockup.path !== mockupPath
+        );
       }
 
       console.log("Wybrane mockupy:", selectedMockups);
@@ -166,38 +180,7 @@ function handleDrop(e) {
   }
 }
 
-function handleFiles(files) {
-  if (files[0].type.match("image.*")) {
-    const reader = new FileReader();
-
-    reader.onload = function (e) {
-      // Wyświetlenie podglądu obrazu
-      imagePreview.src = e.target.result;
-      imagePreview.onload = function () {
-        // Pokaż kontrolki i instrukcję
-        controls.style.display = "block";
-        dragInstruction.style.display = "block";
-
-        // Ustaw flagę, że obraz użytkownika jest wczytany
-        userImageLoaded = true;
-
-        // Resetuj ustawienia
-        resetTransformations();
-
-        // Upewnij się, że obraz jest wyśrodkowany
-        centerImage();
-
-        // Domyślnie ustaw obraz pod mockupem
-        imagePreview.style.zIndex = "5";
-      };
-    };
-
-    reader.readAsDataURL(files[0]);
-  } else {
-    alert("Proszę wybrać plik ze zdjęciem");
-  }
-}
-
+// Funkcja obsługująca wybrane pliki (kliknięcie lub drop)
 function handleFileSelect(e) {
   const files = e.target.files;
   handleFiles(files);
@@ -264,7 +247,6 @@ async function handleFiles(files) {
     alert("Proszę wybrać plik ze zdjęciem");
   }
 }
-
 
 // Obsługa przesuwania obrazu
 imagePreview.addEventListener("mousedown", startDrag);
@@ -409,28 +391,33 @@ async function downloadMultipleMockups() {
   document.body.appendChild(progressMsg);
 
   // Zapisz aktualny mockup, aby przywrócić go po zakończeniu
-  const originalMockup = currentMockupFile;
+  const originalMockup = {
+    path: currentMockupFile,
+    name: currentMockupName,
+    id: currentMockupId,
+  };
 
   // Dla każdego wybranego mockupu
   for (let i = 0; i < selectedMockups.length; i++) {
-    const mockupPath = selectedMockups[i];
+    const mockup = selectedMockups[i];
     progressMsg.textContent = `Generowanie obrazu ${i + 1} z ${
       selectedMockups.length
     }...`;
 
     // Zmień mockup
     await new Promise((resolve) => {
-      changeMockup(mockupPath);
+      changeMockup(mockup.path, mockup.name, mockup.id);
       // Daj czas na załadowanie mockupu
       setTimeout(resolve, 200);
     });
 
-    // Pobierz obraz
-    await generateAndDownloadImage(`projekt-etui-${i + 1}.png`);
+    // Pobierz obraz - używając nazwy mockupu w nazwie pliku
+    const fileName = `${mockup.name.replace(/\s+/g, "_")}_${i + 1}.png`;
+    await generateAndDownloadImage(fileName);
   }
 
   // Przywróć oryginalny mockup
-  changeMockup(originalMockup);
+  changeMockup(originalMockup.path, originalMockup.name, originalMockup.id);
 
   // Usuń komunikat o postępie
   document.body.removeChild(progressMsg);
@@ -517,8 +504,9 @@ function showDownloadOptions() {
       // Usuń dialog
       document.body.removeChild(dialogOverlay);
 
-      // Generuj i pobierz obraz
-      const fileName = `projekt-etui-${size}x${size}.${format}`;
+      // Generuj i pobierz obraz, używając nazwy mockupu
+      const sanitizedName = currentMockupName.replace(/\s+/g, "_");
+      const fileName = `${sanitizedName}_${size}x${size}.${format}`;
       generateAndDownloadImage(fileName, format, parseInt(size));
     });
 }
@@ -806,8 +794,10 @@ function updateTransform() {
 }
 
 // Funkcja zmieniająca mockup
-function changeMockup(mockupPath) {
+function changeMockup(mockupPath, mockupName, mockupId) {
   currentMockupFile = mockupPath;
+  currentMockupName = mockupName || "Mockup"; // Ustaw domyślną nazwę, jeśli nie podano
+  currentMockupId = mockupId || 0;
 
   // Zachowaj stan kontrolek przed zmianą mockupu
   const controlsWereVisible = controls.style.display === "block";
@@ -883,7 +873,9 @@ async function scanMockups() {
     const data = await response.json();
 
     if (data.success) {
-      return data.mockups.map((mockup) => mockup.path);
+      // Zapamiętaj pełne dane mockupów, nie tylko ścieżki
+      mockupsData = data.mockups;
+      return data.mockups;
     } else {
       console.error("Error fetching mockups:", data.error);
       return [];
@@ -895,10 +887,10 @@ async function scanMockups() {
 }
 
 // Funkcja generująca miniatury mockupów
-function generateMockupThumbnails(mockupPaths) {
+function generateMockupThumbnails(mockups) {
   mockupGallery.innerHTML = ""; // Wyczyść galerię
 
-  if (mockupPaths.length === 0) {
+  if (mockups.length === 0) {
     // Zamiast tekstu, dodajemy tylko przycisk dodawania mockupów
     const addButtonHTML = `
       <div class="mockup-thumbnail window-frame add-mockup-button" title="Dodaj nowy mockup">
@@ -908,7 +900,7 @@ function generateMockupThumbnails(mockupPaths) {
       </div>
     `;
     mockupGallery.innerHTML = addButtonHTML;
-    
+
     // Dodajemy obsługę przycisku dodawania mockupów
     const addMockupButton = document.querySelector(".add-mockup-button");
     if (addMockupButton) {
@@ -919,17 +911,22 @@ function generateMockupThumbnails(mockupPaths) {
     return;
   }
 
-  mockupPaths.forEach((path, index) => {
-    const fileName = path.split("/").pop();
-    const mockupNumber = fileName.split(".")[0];
+  mockups.forEach((mockup, index) => {
+    // Upewnij się, że nazwa mockupu jest czysta i nie zawiera znaczników formatowania
+    const cleanName = mockup.name.replace(/\*/g, "").replace(/#/g, "").trim();
 
     const thumbnailHTML = `
       <div class="mockup-thumbnail window-frame ${
         index === 0 ? "active" : ""
-      }" data-mockup="${path}">
-        <input type="checkbox" class="mockup-checkbox" id="checkbox-mockup-${mockupNumber}" />
+      }" data-mockup="${mockup.path}" data-id="${
+      mockup.id
+    }" data-name="${cleanName}">
+        <input type="checkbox" class="mockup-checkbox" id="checkbox-mockup-${
+          mockup.id
+        }" />
+        <div class="window-title-bar">${cleanName}</div>
         <div class="window-content">
-          <img src="${path}" alt="Mockup ${mockupNumber}" />
+          <img src="${mockup.path}" alt="${cleanName}" />
         </div>
       </div>
     `;
@@ -949,8 +946,10 @@ function generateMockupThumbnails(mockupPaths) {
   mockupGallery.innerHTML += addButtonHTML;
 
   // Ustaw pierwszy mockup jako aktywny
-  if (mockupPaths.length > 0) {
-    currentMockupFile = mockupPaths[0];
+  if (mockups.length > 0) {
+    currentMockupFile = mockups[0].path;
+    currentMockupName = mockups[0].name;
+    currentMockupId = mockups[0].id;
     mockupImage.src = currentMockupFile;
   }
 
@@ -961,33 +960,45 @@ function generateMockupThumbnails(mockupPaths) {
   const selectAllButton = document.getElementById("select-all-mockups");
   const deselectAllButton = document.getElementById("deselect-all-mockups");
 
-  selectAllButton.addEventListener("click", function () {
-    const checkboxes = document.querySelectorAll(".mockup-checkbox");
-    checkboxes.forEach((checkbox) => {
-      checkbox.checked = true;
+  if (selectAllButton && deselectAllButton) {
+    selectAllButton.addEventListener("click", function () {
+      const checkboxes = document.querySelectorAll(".mockup-checkbox");
 
-      // Dodaj wszystkie mockupy do wybranych
-      const mockupDiv = checkbox.closest(".mockup-thumbnail");
-      const mockupPath = mockupDiv.getAttribute("data-mockup");
+      // Wyczyść tablicę wybranych mockupów
+      selectedMockups = [];
 
-      if (!selectedMockups.includes(mockupPath)) {
-        selectedMockups.push(mockupPath);
-      }
+      checkboxes.forEach((checkbox) => {
+        checkbox.checked = true;
+
+        // Dodaj mockup do wybranych
+        const mockupDiv = checkbox.closest(".mockup-thumbnail");
+        if (!mockupDiv.classList.contains("add-mockup-button")) {
+          const mockupPath = mockupDiv.getAttribute("data-mockup");
+          const mockupId = parseInt(mockupDiv.getAttribute("data-id"), 10);
+          const mockupName = mockupDiv.getAttribute("data-name");
+
+          selectedMockups.push({
+            path: mockupPath,
+            id: mockupId,
+            name: mockupName,
+          });
+        }
+      });
+
+      console.log("Wszystkie zaznaczone:", selectedMockups);
     });
 
-    console.log("Wszystkie zaznaczone:", selectedMockups);
-  });
+    deselectAllButton.addEventListener("click", function () {
+      const checkboxes = document.querySelectorAll(".mockup-checkbox");
+      checkboxes.forEach((checkbox) => {
+        checkbox.checked = false;
+      });
 
-  deselectAllButton.addEventListener("click", function () {
-    const checkboxes = document.querySelectorAll(".mockup-checkbox");
-    checkboxes.forEach((checkbox) => {
-      checkbox.checked = false;
+      // Wyczyść listę wybranych mockupów
+      selectedMockups = [];
+      console.log("Wszystkie odznaczone");
     });
-
-    // Wyczyść listę wybranych mockupów
-    selectedMockups = [];
-    console.log("Wszystkie odznaczone");
-  });
+  }
 }
 
 // Inicjalizacja
@@ -1007,7 +1018,11 @@ window.onload = async function () {
 
   // Ustaw domyślny mockup jeśli istnieje
   if (availableMockups.length > 0) {
-    changeMockup(availableMockups[0]);
+    changeMockup(
+      availableMockups[0].path,
+      availableMockups[0].name,
+      availableMockups[0].id
+    );
   }
 };
 
