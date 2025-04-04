@@ -899,7 +899,23 @@ function generateMockupThumbnails(mockupPaths) {
   mockupGallery.innerHTML = ""; // Wyczyść galerię
 
   if (mockupPaths.length === 0) {
-    mockupGallery.innerHTML = "<p>Nie znaleziono żadnych mockupów</p>";
+    // Zamiast tekstu, dodajemy tylko przycisk dodawania mockupów
+    const addButtonHTML = `
+      <div class="mockup-thumbnail window-frame add-mockup-button" title="Dodaj nowy mockup">
+        <div class="window-content">
+          <div class="add-button-content">+</div>
+        </div>
+      </div>
+    `;
+    mockupGallery.innerHTML = addButtonHTML;
+    
+    // Dodajemy obsługę przycisku dodawania mockupów
+    const addMockupButton = document.querySelector(".add-mockup-button");
+    if (addMockupButton) {
+      addMockupButton.addEventListener("click", function () {
+        window.location.href = "dodaj.html";
+      });
+    }
     return;
   }
 
