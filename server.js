@@ -121,16 +121,13 @@ app.get("/api/mockups", (req, res) => {
           // New format: id_name.png
           const parts = path.basename(file, ".png").split("_");
           id = parseInt(parts[0], 10) || files.indexOf(file) + 1;
-          name = parts.slice(1).join(" "); // Convert underscores to spaces for display
+          name = parts.slice(1).join("_").replace(/_/g, " "); // Convert underscores back to spaces for display
         } else {
           // Old format: id.png
           const fileNameWithoutExt = path.basename(file, ".png");
           id = parseInt(fileNameWithoutExt, 10) || files.indexOf(file) + 1;
           name = `Mockup ${id}`; // Default name for backward compatibility
         }
-
-        // Sanitize name - remove any markdown-like formatting
-        name = name.replace(/\*/g, "").replace(/#/g, "").trim();
 
         mockups.push({
           id: id,
