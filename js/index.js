@@ -604,34 +604,28 @@ async function generateAndDownloadImage(
   format = "png",
   size = 1200
 ) {
-  // Show progress message
   const progressMsg = document.createElement("div");
   progressMsg.className = "progress-message";
   progressMsg.textContent = "Trwa generowanie obrazu, proszę czekać...";
   document.body.appendChild(progressMsg);
 
-  // Delay execution to allow progress message to display
   return new Promise((resolve) => {
     setTimeout(async function () {
       try {
-        // Create canvas with specified dimensions
         const canvas = document.createElement("canvas");
         canvas.width = size;
         canvas.height = size;
         const ctx = canvas.getContext("2d");
 
-        // Set white background
         ctx.fillStyle = "white";
         ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-        // Create image objects
         const mockupImg = new Image();
         const userImg = new Image();
 
         let imagesLoaded = 0;
         let hasError = false;
 
-        // Error handler function
         function handleImageError(message) {
           hasError = true;
           console.error(message);
@@ -640,108 +634,62 @@ async function generateAndDownloadImage(
           resolve(false);
         }
 
-        // Drawing function - called after both images are loaded
         function drawAndDownload() {
           if (hasError) return resolve(false);
 
           try {
-            // Get editor container dimensions for accurate scaling
-            const editorRect = editorContainer.getBoundingClientRect();
+            const mockupScaleFactor = Math.min(
+              size / mockupImg.naturalWidth,
+              size / mockupImg.naturalHeight
+            );
 
-            // Instead of using the entire editorRect which may have padding/margins,
-            // use the mockup image dimensions as our reference
-            const mockupRect = mockupImage.getBoundingClientRect();
+            const drawWidth = mockupImg.naturalWidth * mockupScaleFactor;
+            const drawHeight = mockupImg.naturalHeight * mockupScaleFactor;
 
-            // Calculate aspect ratio of the mockup in the preview
-            const mockupAspectRatio =
-              mockupImg.naturalWidth / mockupImg.naturalHeight;
-
-            // Calculate the dimensions to maintain proper aspect ratio in the canvas
-            let drawWidth, drawHeight;
-            if (mockupAspectRatio >= 1) {
-              // Wider than tall
-              drawWidth = canvas.width;
-              drawHeight = canvas.width / mockupAspectRatio;
-            } else {
-              // Taller than wide
-              drawHeight = canvas.height;
-              drawWidth = canvas.height * mockupAspectRatio;
-            }
-
-            // Center the mockup on the canvas
             const mockupX = (canvas.width - drawWidth) / 2;
             const mockupY = (canvas.height - drawHeight) / 2;
 
-            // Get the z-index to determine drawing order
-            const zIndexValue = parseInt(imagePreview.style.zIndex || "5");
-            const imageOnTop = zIndexValue >= 10;
+            const imageOnTop = parseInt(imagePreview.style.zIndex || "5") >= 10;
 
-            // Calculate scaling for user image positioning
-            // Use the mockup's displayed size as the reference for scaling
-            const scaleX = drawWidth / mockupRect.width;
-            const scaleY = drawHeight / mockupRect.height;
-
-            // Position user image relative to mockup center
-            const userImageX = canvas.width / 2 + currentX * scaleX;
-            const userImageY = canvas.height / 2 + currentY * scaleY;
-
-            // Draw in the correct order based on z-index
             if (imageOnTop) {
-              // Draw mockup first
-              if (mockupAspectRatio !== 1) {
-                // If mockup isn't square, draw with preserved aspect ratio
-                ctx.drawImage(
-                  mockupImg,
-                  mockupX,
-                  mockupY,
-                  drawWidth,
-                  drawHeight
-                );
-              } else {
-                // If mockup is square, fill the canvas
-                ctx.drawImage(mockupImg, 0, 0, canvas.width, canvas.height);
-              }
-
-              // Then draw user image on top
+              ctx.drawImage(mockupImg, mockupX, mockupY, drawWidth, drawHeight);
               drawUserImage();
             } else {
-              // Draw user image first
               drawUserImage();
-
-              // Then draw mockup on top
-              if (mockupAspectRatio !== 1) {
-                // If mockup isn't square, draw with preserved aspect ratio
-                ctx.drawImage(
-                  mockupImg,
-                  mockupX,
-                  mockupY,
-                  drawWidth,
-                  drawHeight
-                );
-              } else {
-                // If mockup is square, fill the canvas
-                ctx.drawImage(mockupImg, 0, 0, canvas.width, canvas.height);
-              }
+              ctx.drawImage(mockupImg, mockupX, mockupY, drawWidth, drawHeight);
             }
 
-            // Function to draw the user image with current transformations
             function drawUserImage() {
+              const canvasCenterX = canvas.width / 2;
+              const canvasCenterY = canvas.height / 2;
+
+              const USER_CORRECTION_FACTOR = 0.68;
+
+              const scaledX =
+                currentX * mockupScaleFactor * USER_CORRECTION_FACTOR;  
+              const scaledY =
+                currentY * mockupScaleFactor * USER_CORRECTION_FACTOR;
+
+              const userImageX = canvasCenterX + scaledX;
+              const userImageY = canvasCenterY + scaledY;
+
               ctx.save();
               ctx.translate(userImageX, userImageY);
               ctx.rotate((currentRotation * Math.PI) / 180);
-              const scaledZoom = currentZoom / 100;
+
+              const scaledZoom =
+                (currentZoom / 100) *
+                mockupScaleFactor *
+                USER_CORRECTION_FACTOR;
               ctx.scale(scaledZoom, scaledZoom);
 
-              // Calculate dimensions to maintain aspect ratio
-              const userImgWidth = userImg.width;
-              const userImgHeight = userImg.height;
-
-              // Draw user image centered at the current position
+              const userImgWidth = userImg.naturalWidth;
+              const userImgHeight = userImg.naturalHeight;
               ctx.drawImage(userImg, -userImgWidth / 2, -userImgHeight / 2);
+
               ctx.restore();
             }
 
-            // Create and download the image
             if (canvas.toBlob) {
               const mimeType = format === "jpg" ? "image/jpeg" : "image/png";
               const quality = format === "jpg" ? 0.9 : undefined;
@@ -754,7 +702,6 @@ async function generateAndDownloadImage(
                 quality
               );
             } else {
-              // Fallback to dataURL if toBlob not supported
               const dataURL = canvas.toDataURL(
                 format === "jpg" ? "image/jpeg" : "image/png"
               );
@@ -768,7 +715,6 @@ async function generateAndDownloadImage(
           }
         }
 
-        // Function to download using Blob (preferred method)
         function downloadUsingBlob(blob) {
           try {
             const url = URL.createObjectURL(blob);
@@ -778,7 +724,6 @@ async function generateAndDownloadImage(
             document.body.appendChild(a);
             a.click();
 
-            // Give the browser time to start downloading
             setTimeout(function () {
               document.body.removeChild(a);
               URL.revokeObjectURL(url);
@@ -793,7 +738,6 @@ async function generateAndDownloadImage(
           }
         }
 
-        // Fallback download method using dataURL
         function downloadUsingDataURL(dataURL) {
           try {
             const a = document.createElement("a");
@@ -815,7 +759,6 @@ async function generateAndDownloadImage(
           }
         }
 
-        // Error handlers for image loading
         mockupImg.onerror = function () {
           handleImageError(
             "Nie można załadować obrazu mockupu: " + mockupImage.src
@@ -828,7 +771,6 @@ async function generateAndDownloadImage(
           );
         };
 
-        // Load the images
         mockupImg.onload = function () {
           imagesLoaded++;
           if (imagesLoaded === 2) drawAndDownload();
@@ -839,14 +781,12 @@ async function generateAndDownloadImage(
           if (imagesLoaded === 2) drawAndDownload();
         };
 
-        // Set image sources with cache prevention timestamp
         mockupImg.crossOrigin = "Anonymous";
         userImg.crossOrigin = "Anonymous";
         const timestamp = new Date().getTime();
         mockupImg.src = mockupImage.src + "?t=" + timestamp;
         userImg.src = imagePreview.src;
 
-        // Safety timeout
         setTimeout(function () {
           if (imagesLoaded < 2 && !hasError) {
             handleImageError("Przekroczono limit czasu ładowania obrazów");
