@@ -57,6 +57,81 @@ let currentRotation = 0;
 let currentZoom = 100;
 let userImageLoaded = false; // Flaga do śledzenia, czy obraz użytkownika został wczytany
 
+// Object to store parameters for each mockup
+let mockupParameters = {};
+
+// Function to save the current parameters for the current mockup
+function saveCurrentMockupParameters() {
+  if (currentMockupId && userImageLoaded) {
+    mockupParameters[currentMockupId] = {
+      rotation: currentRotation,
+      zoom: currentZoom,
+      positionX: currentX,
+      positionY: currentY,
+      layerFront: imagePreview.style.zIndex >= 10,
+    };
+
+    // Save to localStorage for persistence
+    saveParametersToLocalStorage();
+  }
+}
+
+// Function to load parameters for a mockup
+function loadMockupParameters(mockupId) {
+  if (mockupId && mockupParameters[mockupId] && userImageLoaded) {
+    const params = mockupParameters[mockupId];
+
+    // Apply saved parameters
+    currentRotation = params.rotation;
+    currentZoom = params.zoom;
+    currentX = params.positionX;
+    currentY = params.positionY;
+
+    // Update sliders to reflect loaded values
+    rotateSlider.value = currentRotation;
+    rotateValue.textContent = currentRotation;
+
+    zoomSlider.value = currentZoom;
+    zoomValue.textContent = currentZoom;
+
+    moveXSlider.value = currentX;
+    moveYSlider.value = currentY;
+    moveXValue.textContent = currentX;
+    moveYValue.textContent = currentY;
+
+    // Set layer order
+    if (params.layerFront) {
+      imagePreview.style.zIndex = "20";
+    } else {
+      imagePreview.style.zIndex = "5";
+    }
+
+    // Apply transformations
+    updateTransform();
+  } else {
+    // If no saved parameters, reset to defaults
+    resetTransformations();
+  }
+}
+
+// Save all parameters to localStorage
+function saveParametersToLocalStorage() {
+  localStorage.setItem("mockupParameters", JSON.stringify(mockupParameters));
+}
+
+// Load all parameters from localStorage on page load
+function loadParametersFromLocalStorage() {
+  const savedParams = localStorage.getItem("mockupParameters");
+  if (savedParams) {
+    try {
+      mockupParameters = JSON.parse(savedParams);
+    } catch (e) {
+      console.error("Error parsing saved mockup parameters:", e);
+      mockupParameters = {};
+    }
+  }
+}
+
 // Obsługa uploadu pliku przez kliknięcie
 uploadInput.addEventListener("change", handleFileSelect);
 
@@ -217,8 +292,8 @@ async function handleFiles(files) {
       document.body.removeChild(loadingMsg);
 
       if (result.success) {
-        // Display image preview
-        imagePreview.src = result.filePath;
+        // Use the base64 image data instead of file path
+        imagePreview.src = result.imageData;
         imagePreview.onload = function () {
           // Show controls and instructions
           controls.style.display = "block";
@@ -227,14 +302,8 @@ async function handleFiles(files) {
           // Set flag that user image is loaded
           userImageLoaded = true;
 
-          // Reset settings
-          resetTransformations();
-
-          // Center the image
-          centerImage();
-
-          // Default to setting image under mockup
-          imagePreview.style.zIndex = "5";
+          // Load parameters for current mockup or reset if none exist
+          loadMockupParameters(currentMockupId);
         };
       } else {
         alert("Error: " + (result.error || "Failed to upload image"));
@@ -265,6 +334,11 @@ function startDrag(e) {
 function stopDrag() {
   isDragging = false;
   imagePreview.style.cursor = "move";
+
+  // Save parameters if we were dragging
+  if (userImageLoaded) {
+    saveCurrentMockupParameters();
+  }
 }
 
 function drag(e) {
@@ -294,12 +368,14 @@ rotateSlider.addEventListener("input", function () {
   currentRotation = parseInt(this.value);
   rotateValue.textContent = currentRotation;
   updateTransform();
+  saveCurrentMockupParameters();
 });
 
 zoomSlider.addEventListener("input", function () {
   currentZoom = parseInt(this.value);
   zoomValue.textContent = currentZoom;
   updateTransform();
+  saveCurrentMockupParameters();
 });
 
 rotateLeft.addEventListener("click", function () {
@@ -308,6 +384,7 @@ rotateLeft.addEventListener("click", function () {
   rotateSlider.value = currentRotation;
   rotateValue.textContent = currentRotation;
   updateTransform();
+  saveCurrentMockupParameters();
 });
 
 rotateRight.addEventListener("click", function () {
@@ -316,6 +393,7 @@ rotateRight.addEventListener("click", function () {
   rotateSlider.value = currentRotation;
   rotateValue.textContent = currentRotation;
   updateTransform();
+  saveCurrentMockupParameters();
 });
 
 zoomIn.addEventListener("click", function () {
@@ -323,6 +401,7 @@ zoomIn.addEventListener("click", function () {
   zoomSlider.value = currentZoom;
   zoomValue.textContent = currentZoom;
   updateTransform();
+  saveCurrentMockupParameters();
 });
 
 zoomOut.addEventListener("click", function () {
@@ -330,20 +409,27 @@ zoomOut.addEventListener("click", function () {
   zoomSlider.value = currentZoom;
   zoomValue.textContent = currentZoom;
   updateTransform();
+  saveCurrentMockupParameters();
 });
 
-resetButton.addEventListener("click", resetTransformations);
+resetButton.addEventListener("click", function () {
+  resetTransformations();
+  saveCurrentMockupParameters();
+});
 
 centerButton.addEventListener("click", function () {
   centerImage();
+  saveCurrentMockupParameters();
 });
 
 layerFrontButton.addEventListener("click", function () {
   imagePreview.style.zIndex = "20";
+  saveCurrentMockupParameters();
 });
 
 layerBackButton.addEventListener("click", function () {
   imagePreview.style.zIndex = "5";
+  saveCurrentMockupParameters();
 });
 
 // Obsługa suwaków przesuwania
@@ -351,12 +437,14 @@ moveXSlider.addEventListener("input", function () {
   currentX = parseInt(this.value);
   moveXValue.textContent = currentX;
   updateTransform();
+  saveCurrentMockupParameters();
 });
 
 moveYSlider.addEventListener("input", function () {
   currentY = parseInt(this.value);
   moveYValue.textContent = currentY;
   updateTransform();
+  saveCurrentMockupParameters();
 });
 
 // Obsługa przycisku pobierania wszystkich wybranych mockupów
@@ -795,17 +883,21 @@ function updateTransform() {
 
 // Funkcja zmieniająca mockup
 function changeMockup(mockupPath, mockupName, mockupId) {
+  // Save current mockup parameters before changing
+  saveCurrentMockupParameters();
+
+  // Change mockup as before
   currentMockupFile = mockupPath;
-  currentMockupName = mockupName || "Mockup"; // Ustaw domyślną nazwę, jeśli nie podano
+  currentMockupName = mockupName || "Mockup";
   currentMockupId = mockupId || 0;
 
-  // Zachowaj stan kontrolek przed zmianą mockupu
+  // Preserve control visibility state
   const controlsWereVisible = controls.style.display === "block";
   const instructionsWereVisible = dragInstruction.style.display === "block";
 
   mockupImage.src = mockupPath;
 
-  // Obsługa błędu ładowania mockupu
+  // Error handling
   mockupImage.onerror = function () {
     console.error(`Nie można załadować mockupu: ${mockupPath}`);
     alert(`Nie można załadować mockupu: ${mockupPath}. Używanie placeholdera.`);
@@ -813,19 +905,20 @@ function changeMockup(mockupPath, mockupName, mockupId) {
       "https://via.placeholder.com/400x800/ffffff/000000?text=Mockup+Niedostępny";
   };
 
-  // Obsługa zdarzenia onload mockupa - to się uruchamia po załadowaniu nowego mockupu
+  // After mockup loaded, load its parameters
   mockupImage.onload = function () {
-    // Przywróć widoczność kontrolek, jeśli były widoczne i obraz został wcześniej wczytany
+    // Load parameters for the new mockup
+    loadMockupParameters(currentMockupId);
+
+    // Restore control visibility
     if (userImageLoaded) {
       controls.style.display = "block";
       dragInstruction.style.display = "block";
     }
   };
 
-  // Dodatkowo, natychmiast przywróć kontrolki, jeśli obraz użytkownika jest wczytany
+  // Restore controls immediately if image is loaded
   if (userImageLoaded) {
-    // Używamy setTimeout, aby upewnić się, że kontrolki zostaną przywrócone
-    // nawet jeśli coś innego próbuje je ukryć
     setTimeout(function () {
       controls.style.display = "block";
       dragInstruction.style.display = "block";
@@ -1001,8 +1094,16 @@ function generateMockupThumbnails(mockups) {
   }
 }
 
+// Save parameters when page is about to be unloaded
+window.addEventListener("beforeunload", function () {
+  saveCurrentMockupParameters();
+});
+
 // Inicjalizacja
 window.onload = async function () {
+  // Load saved parameters from localStorage
+  loadParametersFromLocalStorage();
+
   // Domyślne ustawienie braku kontrolek przy starcie
   controls.style.display = "none";
   dragInstruction.style.display = "none";

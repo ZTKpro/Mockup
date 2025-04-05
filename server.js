@@ -17,32 +17,26 @@ const userImagesDir = path.join(uploadDir, "user-images");
   }
 });
 
-// Configure multer storage
-const storage = multer.diskStorage({
+// Configure multer storage for mockups (saved to disk)
+const mockupStorage = multer.diskStorage({
   destination: function (req, file, cb) {
-    // Determine the destination folder based on the route
-    const isUserImage = req.path.includes("user-image");
-    const destFolder = isUserImage ? userImagesDir : mockupDir;
-    cb(null, destFolder);
+    cb(null, mockupDir);
   },
   filename: function (req, file, cb) {
-    // For mockups, use the specified number and name if provided
-    if (req.path.includes("mockup")) {
-      const mockupNumber = req.body.mockupNumber || Date.now();
-      // Sanitize mockup name: replace spaces with underscores and remove special characters
-      const mockupName = req.body.mockupName
-        ? req.body.mockupName
-            .replace(/[^a-zA-Z0-9ąćęłńóśźżĄĆĘŁŃÓŚŹŻ\s_-]/g, "")
-            .replace(/\s+/g, "_")
-        : "mockup";
+    const mockupNumber = req.body.mockupNumber || Date.now();
+    // Sanitize mockup name: replace spaces with underscores and remove special characters
+    const mockupName = req.body.mockupName
+      ? req.body.mockupName
+          .replace(/[^a-zA-Z0-9ąćęłńóśźżĄĆĘŁŃÓŚŹŻ\s_-]/g, "")
+          .replace(/\s+/g, "_")
+      : "mockup";
 
-      cb(null, `${mockupNumber}_${mockupName}.png`);
-    } else {
-      const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
-      cb(null, uniqueSuffix + path.extname(file.originalname));
-    }
+    cb(null, `${mockupNumber}_${mockupName}.png`);
   },
 });
+
+// Memory storage for user images (not saved to disk)
+const userImageStorage = multer.memoryStorage();
 
 // File filter to accept only images
 const fileFilter = (req, file, cb) => {
@@ -53,9 +47,17 @@ const fileFilter = (req, file, cb) => {
   }
 };
 
-// Setup the multer upload
-const upload = multer({
-  storage: storage,
+// Setup the multer uploads with different configurations
+const uploadMockup = multer({
+  storage: mockupStorage,
+  fileFilter: fileFilter,
+  limits: {
+    fileSize: 10 * 1024 * 1024, // 10MB limit
+  },
+});
+
+const uploadUserImage = multer({
+  storage: userImageStorage, // Using memory storage for user images
   fileFilter: fileFilter,
   limits: {
     fileSize: 10 * 1024 * 1024, // 10MB limit
@@ -72,21 +74,33 @@ app.use(express.urlencoded({ extended: true }));
 // Serve files from the uploads directory
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
-// API endpoint to upload a user image
-app.post("/api/upload/user-image", upload.single("image"), (req, res) => {
-  if (!req.file) {
-    return res.status(400).json({ error: "Nie przesłano pliku" });
+// API endpoint to upload a user image - now using memory storage
+app.post(
+  "/api/upload/user-image",
+  uploadUserImage.single("image"),
+  (req, res) => {
+    if (!req.file) {
+      return res.status(400).json({ error: "Nie przesłano pliku" });
+    }
+
+    // Convert the buffer to base64 data URL
+    const fileExtension =
+      path.extname(req.file.originalname).substring(1) || "png";
+    const base64Image = `data:${
+      req.file.mimetype
+    };base64,${req.file.buffer.toString("base64")}`;
+
+    // Return the base64 data URL instead of a file path
+    res.json({
+      success: true,
+      imageData: base64Image,
+      // No filePath since we're not saving to disk
+    });
   }
+);
 
-  // Return the file path
-  res.json({
-    success: true,
-    filePath: `/uploads/user-images/${req.file.filename}`,
-  });
-});
-
-// API endpoint to upload mockups
-app.post("/api/upload/mockup", upload.single("mockup"), (req, res) => {
+// API endpoint to upload mockups - these are still saved to disk
+app.post("/api/upload/mockup", uploadMockup.single("mockup"), (req, res) => {
   if (!req.file) {
     return res.status(400).json({ error: "Nie przesłano pliku" });
   }
