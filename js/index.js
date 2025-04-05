@@ -663,12 +663,14 @@ async function generateAndDownloadImage(
               const canvasCenterX = canvas.width / 2;
               const canvasCenterY = canvas.height / 2;
 
-              const USER_CORRECTION_FACTOR = 0.68;
+              // Use separate correction factors for X and Y
+              const X_CORRECTION_FACTOR = 0.68;
+              const Y_CORRECTION_FACTOR = 1.4; // Increased Y correction factor
 
               const scaledX =
-                currentX * mockupScaleFactor * USER_CORRECTION_FACTOR;  
+                currentX * mockupScaleFactor * X_CORRECTION_FACTOR;
               const scaledY =
-                currentY * mockupScaleFactor * USER_CORRECTION_FACTOR;
+                currentY * mockupScaleFactor * Y_CORRECTION_FACTOR;
 
               const userImageX = canvasCenterX + scaledX;
               const userImageY = canvasCenterY + scaledY;
@@ -677,10 +679,9 @@ async function generateAndDownloadImage(
               ctx.translate(userImageX, userImageY);
               ctx.rotate((currentRotation * Math.PI) / 180);
 
+              // Use X correction factor for zoom to maintain proportions
               const scaledZoom =
-                (currentZoom / 100) *
-                mockupScaleFactor *
-                USER_CORRECTION_FACTOR;
+                (currentZoom / 100) * mockupScaleFactor * X_CORRECTION_FACTOR;
               ctx.scale(scaledZoom, scaledZoom);
 
               const userImgWidth = userImg.naturalWidth;
