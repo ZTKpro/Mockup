@@ -166,8 +166,6 @@ function generateMockupThumbnails(mockups) {
       </div>
     `;
     mockupGallery.innerHTML = addButtonHTML;
-
-    // Don't return early - instead, skip to setting up the listeners
   } else {
     // Group mockups by model
     const mockupsByModel = {};
@@ -191,9 +189,18 @@ function generateMockupThumbnails(mockups) {
         const modelGroupHTML = `
         <div class="model-group" data-model="${model}">
           <div class="model-header">
-            <div class="model-name">${model} <span class="model-count">(${
+            <div class="model-name">
+              <input type="checkbox" class="group-select-checkbox" id="group-select-${model.replace(
+                /\s+/g,
+                "-"
+              )}" data-model="${model}">
+              <label for="group-select-${model.replace(
+                /\s+/g,
+                "-"
+              )}">${model} <span class="model-count">(${
           mockupsForModel.length
-        })</span></div>
+        })</span></label>
+            </div>
             <span class="model-collapse-icon">▼</span>
           </div>
           <div class="model-mockups">
@@ -230,6 +237,33 @@ function generateMockupThumbnails(mockups) {
   setupModelGroupListeners();
   setupThumbnailListeners();
   setupSelectionButtons();
+  setupGroupSelectionCheckboxes(); // Add this new function to set up group selection checkboxes
+}
+
+function setupGroupSelectionCheckboxes() {
+  const groupCheckboxes = document.querySelectorAll(".group-select-checkbox");
+
+  groupCheckboxes.forEach((checkbox) => {
+    checkbox.addEventListener("change", function () {
+      const model = this.getAttribute("data-model");
+      const isChecked = this.checked;
+      const modelGroup = document.querySelector(
+        `.model-group[data-model="${model}"]`
+      );
+
+      if (modelGroup) {
+        const checkboxes = modelGroup.querySelectorAll(".mockup-checkbox");
+
+        checkboxes.forEach((cb) => {
+          cb.checked = isChecked;
+
+          // Trigger the change event to update the selectedMockups array
+          const event = new Event("change", { bubbles: true });
+          cb.dispatchEvent(event);
+        });
+      }
+    });
+  });
 }
 
 // Helper function to generate model filters
@@ -474,6 +508,9 @@ function setupThumbnailListeners() {
         );
       }
 
+      // Update group checkbox state based on individual checkboxes
+      updateGroupCheckboxState(mockupModel);
+
       console.log("Wybrane mockupy:", selectedMockups);
     });
   });
@@ -484,6 +521,35 @@ function setupThumbnailListeners() {
     addMockupButton.addEventListener("click", function () {
       window.location.href = "dodaj.html";
     });
+  }
+}
+
+function updateGroupCheckboxState(model) {
+  const groupCheckbox = document.querySelector(
+    `.group-select-checkbox[data-model="${model}"]`
+  );
+  if (!groupCheckbox) return;
+
+  const modelGroup = document.querySelector(
+    `.model-group[data-model="${model}"]`
+  );
+  if (!modelGroup) return;
+
+  const allCheckboxes = modelGroup.querySelectorAll(".mockup-checkbox");
+  const checkedCheckboxes = modelGroup.querySelectorAll(
+    ".mockup-checkbox:checked"
+  );
+
+  // Set the group checkbox state based on individual checkboxes
+  if (checkedCheckboxes.length === 0) {
+    groupCheckbox.checked = false;
+    groupCheckbox.indeterminate = false;
+  } else if (checkedCheckboxes.length === allCheckboxes.length) {
+    groupCheckbox.checked = true;
+    groupCheckbox.indeterminate = false;
+  } else {
+    groupCheckbox.checked = false;
+    groupCheckbox.indeterminate = true;
   }
 }
 

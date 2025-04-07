@@ -589,6 +589,57 @@ img {
   }
 }
 
+.model-header {
+  background-color: #3498db;
+  color: white;
+  padding: 8px 12px;
+  font-weight: bold;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  cursor: pointer;
+}
+
+.model-name {
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+}
+
+.group-select-checkbox {
+  margin-right: 8px;
+  cursor: pointer;
+}
+
+/* Make checkbox easier to click */
+.model-name label {
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+}
+
+/* Add slight animation for checkbox changes */
+.mockup-checkbox,
+.group-select-checkbox {
+  transition: transform 0.1s;
+}
+
+.mockup-checkbox:checked,
+.group-select-checkbox:checked {
+  transform: scale(1.2);
+}
+
+/* Highlight selected groups */
+.model-group.all-selected .model-header {
+  background-color: #2980b9;
+  box-shadow: 0 0 5px rgba(41, 128, 185, 0.5);
+}
+
+.model-group.some-selected .model-header {
+  background-color: #3498db;
+  box-shadow: 0 0 5px rgba(52, 152, 219, 0.5);
+}
+
 @media (max-width: 768px) {
   .mockup-gallery {
     grid-template-columns: repeat(2, 1fr);
