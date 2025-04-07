@@ -505,6 +505,29 @@ img {
   }
 }
 
+.mockup-model {
+  font-size: 12px;
+  color: #666;
+  flex: 1;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  padding: 0 5px;
+}
+
+.mockup-item {
+  margin-bottom: 15px;
+}
+
+.model-header {
+  background-color: #f1f1f1;
+  padding: 8px 12px;
+  margin-bottom: 10px;
+  border-radius: 4px;
+  font-weight: bold;
+}
+
 @media (max-width: 768px) {
   .mockup-gallery {
     grid-template-columns: repeat(2, 1fr);

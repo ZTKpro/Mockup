@@ -292,6 +292,32 @@
       </div>
 
       <!-- Button to add new mockups -->
+      <div style="margin-bottom: 20px; text-align: center">
+        <label
+          for="mockup-model"
+          style="display: block; margin-bottom: 8px; font-weight: bold"
+          >Model telefonu:</label
+        >
+        <input
+          type="text"
+          id="mockup-model"
+          list="models-list"
+          placeholder="np. iPhone_14_Pro"
+          style="
+            width: 100%;
+            max-width: 300px;
+            padding: 8px;
+            border-radius: 4px;
+            border: 1px solid #ddd;
+          "
+        />
+        <datalist id="models-list">
+          <!-- Models will be dynamically loaded here -->
+        </datalist>
+        <p style="margin-top: 5px; color: #666; font-size: 13px">
+          Wybierz istniejący model lub wpisz nowy
+        </p>
+      </div>
       <button class="add-new-btn" id="add-new-btn">+ Dodaj nowe mockupy</button>
       <input type="file" id="file-input" accept="image/png" multiple />
     </div>
@@ -306,6 +332,7 @@
         const addNewBtn = document.getElementById("add-new-btn");
         const existingMockups = document.getElementById("existing-mockups");
         const uploadIndicator = document.getElementById("upload-indicator");
+        const modelInput = document.getElementById("mockup-model");
 
         // Click handler for add button
         addNewBtn.addEventListener("click", () => {
@@ -322,6 +349,9 @@
             // Show loading indicator
             loadingIndicator.style.display = "block";
 
+            // Load available models
+            await loadAvailableModels();
+
             // Fetch mockups from API
             const availableMockups = await fetchMockups();
 
@@ -333,6 +363,27 @@
           } catch (error) {
             console.error("Error initializing mockup gallery:", error);
             loadingIndicator.textContent = "Błąd wczytywania mockupów.";
+          }
+        }
+
+        // Load available models for the datalist
+        async function loadAvailableModels() {
+          try {
+            const response = await fetch("/api/models");
+            const data = await response.json();
+
+            if (data.success) {
+              const modelsList = document.getElementById("models-list");
+              modelsList.innerHTML = "";
+
+              data.models.forEach((model) => {
+                const option = document.createElement("option");
+                option.value = model;
+                modelsList.appendChild(option);
+              });
+            }
+          } catch (error) {
+            console.error("Error loading models:", error);
           }
         }
 
@@ -364,26 +415,51 @@
             noMockups.style.display = "none";
           }
 
-          // Sort mockups by ID
-          mockups.sort((a, b) => a.id - b.id);
-
+          // Group mockups by model
+          const mockupsByModel = {};
           mockups.forEach((mockup) => {
-            const itemHTML = `
-              <div class="mockup-item" data-id="${mockup.id}" data-path="${mockup.path}">
-                <div class="mockup-thumbnail">
-                  <img src="${mockup.path}" alt="Mockup ${mockup.id}" />
-                </div>
-                <div class="mockup-controls">
-                  <div class="mockup-number">#${mockup.id}</div>
-                  <div class="mockup-actions">
-                    <button class="action-btn delete" title="Usuń mockup">×</button>
-                  </div>
-                </div>
-              </div>
-            `;
-
-            mockupGallery.innerHTML += itemHTML;
+            const model = mockup.model || "Inne";
+            if (!mockupsByModel[model]) {
+              mockupsByModel[model] = [];
+            }
+            mockupsByModel[model].push(mockup);
           });
+
+          // Sort mockups by ID within each model group
+          Object.keys(mockupsByModel).forEach((model) => {
+            mockupsByModel[model].sort((a, b) => a.id - b.id);
+          });
+
+          // Display mockups grouped by model
+          Object.keys(mockupsByModel)
+            .sort()
+            .forEach((model) => {
+              // Add model header
+              const modelHeader = document.createElement("div");
+              modelHeader.className = "model-header";
+              modelHeader.textContent =
+                model + ` (${mockupsByModel[model].length})`;
+              mockupGallery.appendChild(modelHeader);
+
+              // Add mockups for this model
+              mockupsByModel[model].forEach((mockup) => {
+                const itemHTML = `
+          <div class="mockup-item" data-id="${mockup.id}" data-path="${mockup.path}">
+            <div class="mockup-thumbnail">
+              <img src="${mockup.path}" alt="Mockup ${mockup.id}" />
+            </div>
+            <div class="mockup-controls">
+              <div class="mockup-model">${mockup.model}</div>
+              <div class="mockup-actions">
+                <button class="action-btn edit-model" title="Zmień model">📱</button>
+                <button class="action-btn delete" title="Usuń mockup">×</button>
+              </div>
+            </div>
+          </div>
+        `;
+                mockupGallery.innerHTML += itemHTML;
+              });
+            });
 
           // Assign listeners to newly generated elements
           setupMockupItemListeners();
@@ -439,6 +515,64 @@
                 }
               }
             });
+
+            // Edit model button
+            const editModelBtn = item.querySelector(".action-btn.edit-model");
+            if (editModelBtn) {
+              editModelBtn.addEventListener("click", async function (e) {
+                e.stopPropagation();
+
+                const mockupId = item.getAttribute("data-id");
+                const modelElement = item.querySelector(".mockup-model");
+                const currentModel = modelElement
+                  ? modelElement.textContent
+                  : "Inne";
+
+                const newModel = prompt(
+                  "Wprowadź model telefonu:",
+                  currentModel
+                );
+
+                if (newModel && newModel !== currentModel) {
+                  try {
+                    // Show loading indicator
+                    uploadIndicator.style.display = "flex";
+                    uploadIndicator.querySelector(
+                      ".upload-indicator-text"
+                    ).textContent = "Aktualizowanie modelu...";
+
+                    // Call API to update model
+                    const response = await fetch(
+                      `/api/mockups/${mockupId}/model`,
+                      {
+                        method: "PUT",
+                        headers: {
+                          "Content-Type": "application/json",
+                        },
+                        body: JSON.stringify({ model: newModel }),
+                      }
+                    );
+
+                    const result = await response.json();
+
+                    // Hide loading indicator
+                    uploadIndicator.style.display = "none";
+
+                    if (result.success) {
+                      // Refresh mockup gallery to reflect changes
+                      initializeMockupGallery();
+                      alert("Model zaktualizowany pomyślnie");
+                    } else {
+                      alert(`Błąd: ${result.error}`);
+                    }
+                  } catch (error) {
+                    uploadIndicator.style.display = "none";
+                    console.error("Error updating model:", error);
+                    alert("Wystąpił błąd podczas aktualizacji modelu.");
+                  }
+                }
+              });
+            }
 
             // Click handler for thumbnail (select/deselect)
             const thumbnail = item.querySelector(".mockup-thumbnail");
@@ -504,6 +638,9 @@
             return;
           }
 
+          // Get the model from the input
+          const model = modelInput.value.trim() || "Inne";
+
           // Show upload indicator
           uploadIndicator.style.display = "flex";
 
@@ -525,6 +662,7 @@
               const formData = new FormData();
               formData.append("mockup", files[i]);
               formData.append("mockupNumber", nextMockupNumber + i);
+              formData.append("mockupModel", model); // Include the model
 
               const uploadPromise = fetch("/api/upload/mockup", {
                 method: "POST",
@@ -560,8 +698,9 @@
             // Refresh mockup gallery
             initializeMockupGallery();
 
-            // Reset file input
+            // Reset file input and model field
             fileInput.value = "";
+            modelInput.value = "";
           } catch (error) {
             console.error("Error uploading files:", error);
             uploadIndicator.style.display = "none";

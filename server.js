@@ -24,14 +24,18 @@ const mockupStorage = multer.diskStorage({
   },
   filename: function (req, file, cb) {
     const mockupNumber = req.body.mockupNumber || Date.now();
-    // Sanitize mockup name: replace spaces with underscores and remove special characters
+    const mockupModel = req.body.mockupModel
+      ? req.body.mockupModel
+          .replace(/[^a-zA-Z0-9ąćęłńóśźżĄĆĘŁŃÓŚŹŻ\s_-]/g, "")
+          .replace(/\s+/g, "_")
+      : "Inne";
     const mockupName = req.body.mockupName
       ? req.body.mockupName
           .replace(/[^a-zA-Z0-9ąćęłńóśźżĄĆĘŁŃÓŚŹŻ\s_-]/g, "")
           .replace(/\s+/g, "_")
       : "mockup";
 
-    cb(null, `${mockupNumber}_${mockupName}.png`);
+    cb(null, `${mockupNumber}_${mockupModel}_${mockupName}.png`);
   },
 });
 
@@ -118,47 +122,151 @@ app.post("/api/upload/mockup", uploadMockup.single("mockup"), (req, res) => {
 app.get("/api/mockups", (req, res) => {
   try {
     const mockups = [];
-
-    // Read the mockups directory
     const files = fs.readdirSync(mockupDir);
 
-    // Process each file
     files.forEach((file) => {
       if (file.endsWith(".png")) {
         const filePath = `/uploads/mockups/${file}`;
-
-        // Extract ID and name from the filename
-        // Format: "id_name.png" or just "id.png" for older files
-        let id, name;
+        let id,
+          name,
+          model = "Inne"; // Default model for backward compatibility
 
         if (file.includes("_")) {
-          // New format: id_name.png
           const parts = path.basename(file, ".png").split("_");
           id = parseInt(parts[0], 10) || files.indexOf(file) + 1;
-          name = parts.slice(1).join("_").replace(/_/g, " "); // Convert underscores back to spaces for display
+
+          if (parts.length >= 3) {
+            // New format with model: id_model_name.png
+            model = parts[1];
+            name = parts.slice(2).join("_").replace(/_/g, " ");
+          } else {
+            // Old format: id_name.png
+            name = parts.slice(1).join("_").replace(/_/g, " ");
+          }
         } else {
-          // Old format: id.png
+          // Very old format: id.png
           const fileNameWithoutExt = path.basename(file, ".png");
           id = parseInt(fileNameWithoutExt, 10) || files.indexOf(file) + 1;
-          name = `Mockup ${id}`; // Default name for backward compatibility
+          name = `Mockup ${id}`;
         }
 
         mockups.push({
           id: id,
           name: name,
+          model: model,
           path: filePath,
           fileName: file,
         });
       }
     });
 
-    // Sort mockups by ID
     mockups.sort((a, b) => a.id - b.id);
-
     res.json({ success: true, mockups });
   } catch (error) {
     console.error("Error reading mockups directory:", error);
     res.status(500).json({ error: "Błąd odczytu mockupów" });
+  }
+});
+
+app.get("/api/models", (req, res) => {
+  try {
+    const models = new Set();
+    const files = fs.readdirSync(mockupDir);
+
+    files.forEach((file) => {
+      if (file.endsWith(".png")) {
+        let model = "Inne"; // Default model
+
+        if (file.includes("_")) {
+          const parts = path.basename(file, ".png").split("_");
+          if (parts.length >= 3) {
+            // New format with model: id_model_name.png
+            model = parts[1];
+          }
+        }
+
+        models.add(model);
+      }
+    });
+
+    res.json({ success: true, models: Array.from(models).sort() });
+  } catch (error) {
+    console.error("Error reading models:", error);
+    res.status(500).json({ error: "Błąd odczytu modeli" });
+  }
+});
+
+app.put("/api/mockups/:id/model", express.json(), (req, res) => {
+  try {
+    const mockupId = parseInt(req.params.id, 10);
+    const newModel = req.body.model;
+
+    if (!newModel) {
+      return res.status(400).json({ error: "Model nie został podany" });
+    }
+
+    // Sanitize model name
+    const sanitizedModel = newModel
+      .replace(/[^a-zA-Z0-9ąćęłńóśźżĄĆĘŁŃÓŚŹŻ\s_-]/g, "")
+      .replace(/\s+/g, "_");
+
+    // Find the mockup file
+    const files = fs.readdirSync(mockupDir);
+    let mockupFile = null;
+
+    for (const file of files) {
+      if (file.endsWith(".png")) {
+        let id;
+
+        if (file.includes("_")) {
+          id = parseInt(file.split("_")[0], 10);
+        } else {
+          id = parseInt(path.basename(file, ".png"), 10);
+        }
+
+        if (id === mockupId) {
+          mockupFile = file;
+          break;
+        }
+      }
+    }
+
+    if (!mockupFile) {
+      return res.status(404).json({ error: "Nie znaleziono mockupu" });
+    }
+
+    // Parse the filename to extract components
+    const fileNameWithoutExt = path.basename(mockupFile, ".png");
+    const parts = fileNameWithoutExt.split("_");
+    let newFileName;
+
+    if (parts.length >= 3) {
+      // Current format: id_model_name.png
+      newFileName = `${parts[0]}_${sanitizedModel}_${parts
+        .slice(2)
+        .join("_")}.png`;
+    } else if (parts.length === 2) {
+      // Old format: id_name.png
+      newFileName = `${parts[0]}_${sanitizedModel}_${parts[1]}.png`;
+    } else {
+      // Very old format: id.png
+      newFileName = `${parts[0]}_${sanitizedModel}_mockup.png`;
+    }
+
+    // Rename the file
+    fs.renameSync(
+      path.join(mockupDir, mockupFile),
+      path.join(mockupDir, newFileName)
+    );
+
+    res.json({
+      success: true,
+      message: "Model mockupu zaktualizowany",
+      newFileName: newFileName,
+    });
+  } catch (error) {
+    console.error("Error updating mockup model:", error);
+    res.status(500).json({ error: "Błąd aktualizacji modelu mockupu" });
   }
 });
 

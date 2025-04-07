@@ -47,6 +47,7 @@ const downloadButton = document.getElementById("download-button");
 let currentMockupFile = "";
 let currentMockupName = ""; // Przechowuje nazwę aktualnego mockupu
 let currentMockupId = 0; // Przechowuje ID aktualnego mockupu
+let currentMockupModel = ""; // Przechowuje model aktualnego mockupu
 
 // Zmienne stanu
 let isDragging = false;
@@ -59,6 +60,9 @@ let userImageLoaded = false; // Flaga do śledzenia, czy obraz użytkownika zost
 
 // Object to store parameters for each mockup
 let mockupParameters = {};
+
+// Tablica przechowująca wybrane mockupy
+let selectedMockups = [];
 
 // Function to save the current parameters for the current mockup
 function saveCurrentMockupParameters() {
@@ -135,8 +139,271 @@ function loadParametersFromLocalStorage() {
 // Obsługa uploadu pliku przez kliknięcie
 uploadInput.addEventListener("change", handleFileSelect);
 
-// Tablica przechowująca wybrane mockupy
-let selectedMockups = [];
+// Function to generate mockup thumbnails grouped by model
+function generateMockupThumbnails(mockups) {
+  mockupGallery.innerHTML = ""; // Clear gallery
+
+  if (mockups.length === 0) {
+    // Just show the add button if no mockups
+    const addButtonHTML = `
+      <div class="mockup-thumbnail window-frame add-mockup-button" title="Dodaj nowy mockup">
+        <div class="window-content">
+          <div class="add-button-content">+</div>
+        </div>
+      </div>
+    `;
+    mockupGallery.innerHTML = addButtonHTML;
+    return;
+  }
+
+  // Group mockups by model
+  const mockupsByModel = {};
+  mockups.forEach((mockup) => {
+    const model = mockup.model || "Inne";
+    if (!mockupsByModel[model]) {
+      mockupsByModel[model] = [];
+    }
+    mockupsByModel[model].push(mockup);
+  });
+
+  // Generate model filters
+  generateModelFilters(Object.keys(mockupsByModel).sort(), mockupsByModel);
+
+  // Generate mockup groups by model
+  Object.keys(mockupsByModel)
+    .sort()
+    .forEach((model) => {
+      const mockupsForModel = mockupsByModel[model];
+
+      const modelGroupHTML = `
+      <div class="model-group" data-model="${model}">
+        <div class="model-header">
+          <div class="model-name">${model} <span class="model-count">(${
+        mockupsForModel.length
+      })</span></div>
+          <span class="model-collapse-icon">▼</span>
+        </div>
+        <div class="model-mockups">
+          ${generateMockupsHTML(mockupsForModel)}
+        </div>
+      </div>
+    `;
+
+      mockupGallery.innerHTML += modelGroupHTML;
+    });
+
+  // Add button for adding new mockups
+  const addButtonHTML = `
+    <div class="mockup-thumbnail window-frame add-mockup-button" title="Dodaj nowy mockup">
+      <div class="window-content">
+        <div class="add-button-content">+</div>
+      </div>
+    </div>
+  `;
+
+  mockupGallery.innerHTML += addButtonHTML;
+
+  // Set first mockup as active if available
+  if (mockups.length > 0) {
+    currentMockupFile = mockups[0].path;
+    currentMockupName = mockups[0].name;
+    currentMockupId = mockups[0].id;
+    currentMockupModel = mockups[0].model || "Inne";
+    mockupImage.src = currentMockupFile;
+  }
+
+  // Setup event listeners
+  setupModelGroupListeners();
+  setupThumbnailListeners();
+  setupSelectionButtons();
+}
+
+// Helper function to generate model filters
+function generateModelFilters(models, mockupsByModel) {
+  const modelFilters = document.getElementById("model-filters");
+  if (!modelFilters) return;
+
+  modelFilters.innerHTML = `<div class="filter-header">Filtruj według modelu:</div>`;
+
+  // Add "All" option
+  const allFilterHTML = `
+    <div class="model-filter">
+      <input type="checkbox" id="filter-all" class="model-filter-checkbox" data-model="all" checked>
+      <label for="filter-all">Wszystkie modele</label>
+    </div>
+  `;
+  modelFilters.innerHTML += allFilterHTML;
+
+  // Add each model
+  models.forEach((model) => {
+    const modelCount = mockupsByModel[model].length;
+    const filterHTML = `
+      <div class="model-filter">
+        <input type="checkbox" id="filter-${model.replace(
+          /\s+/g,
+          "-"
+        )}" class="model-filter-checkbox" data-model="${model}" checked>
+        <label for="filter-${model.replace(
+          /\s+/g,
+          "-"
+        )}">${model} (${modelCount})</label>
+      </div>
+    `;
+    modelFilters.innerHTML += filterHTML;
+  });
+
+  // Add event listeners for filters
+  setTimeout(() => {
+    const allFilter = document.getElementById("filter-all");
+    if (allFilter) {
+      allFilter.addEventListener("change", function () {
+        const isChecked = this.checked;
+        document
+          .querySelectorAll('.model-filter-checkbox:not([data-model="all"])')
+          .forEach((checkbox) => {
+            checkbox.checked = isChecked;
+            const model = checkbox.getAttribute("data-model");
+            const modelGroup = document.querySelector(
+              `.model-group[data-model="${model}"]`
+            );
+            if (modelGroup) {
+              modelGroup.style.display = isChecked ? "block" : "none";
+            }
+          });
+      });
+    }
+
+    document
+      .querySelectorAll('.model-filter-checkbox:not([data-model="all"])')
+      .forEach((checkbox) => {
+        checkbox.addEventListener("change", function () {
+          const model = this.getAttribute("data-model");
+          const visible = this.checked;
+
+          // Update the corresponding model group
+          const modelGroup = document.querySelector(
+            `.model-group[data-model="${model}"]`
+          );
+          if (modelGroup) {
+            modelGroup.style.display = visible ? "block" : "none";
+          }
+
+          // Update "All" checkbox
+          const allModelsVisible = Array.from(
+            document.querySelectorAll(
+              '.model-filter-checkbox:not([data-model="all"])'
+            )
+          ).every((cb) => cb.checked);
+
+          const allFilter = document.getElementById("filter-all");
+          if (allFilter) {
+            allFilter.checked = allModelsVisible;
+          }
+        });
+      });
+  }, 100);
+}
+
+// Helper function to generate mockup HTML for each model
+function generateMockupsHTML(mockups) {
+  let html = "";
+
+  mockups.forEach((mockup) => {
+    const cleanName = mockup.name.replace(/\*/g, "").replace(/#/g, "").trim();
+
+    html += `
+      <div class="mockup-thumbnail window-frame" 
+           data-mockup="${mockup.path}" 
+           data-id="${mockup.id}" 
+           data-name="${cleanName}" 
+           data-model="${mockup.model || "Inne"}">
+        <input type="checkbox" class="mockup-checkbox" id="checkbox-mockup-${
+          mockup.id
+        }" />
+        <div class="window-title-bar">${cleanName}</div>
+        <div class="window-content">
+          <img src="${mockup.path}" alt="${cleanName}" />
+        </div>
+      </div>
+    `;
+  });
+
+  return html;
+}
+
+// Setup collapsible model groups
+function setupModelGroupListeners() {
+  const modelHeaders = document.querySelectorAll(".model-header");
+  modelHeaders.forEach((header) => {
+    header.addEventListener("click", function () {
+      const mockupsContainer = this.nextElementSibling;
+      const icon = this.querySelector(".model-collapse-icon");
+
+      mockupsContainer.classList.toggle("collapsed");
+      icon.classList.toggle("collapsed");
+    });
+  });
+}
+
+// Update the select all button to consider model filters
+function setupSelectionButtons() {
+  const selectAllButton = document.getElementById("select-all-mockups");
+  const deselectAllButton = document.getElementById("deselect-all-mockups");
+
+  if (selectAllButton && deselectAllButton) {
+    selectAllButton.addEventListener("click", function () {
+      // Get only visible models (that aren't filtered out)
+      const visibleModels = [];
+      document
+        .querySelectorAll('.model-filter-checkbox:not([data-model="all"])')
+        .forEach((checkbox) => {
+          if (checkbox.checked) {
+            visibleModels.push(checkbox.getAttribute("data-model"));
+          }
+        });
+
+      // Clear selected mockups array
+      selectedMockups = [];
+
+      // Select checkboxes only for visible models
+      document.querySelectorAll(".mockup-checkbox").forEach((checkbox) => {
+        const mockupDiv = checkbox.closest(".mockup-thumbnail");
+        if (!mockupDiv || mockupDiv.classList.contains("add-mockup-button"))
+          return;
+
+        const model = mockupDiv.getAttribute("data-model");
+
+        if (visibleModels.includes(model)) {
+          checkbox.checked = true;
+
+          // Add to selected mockups array
+          const mockupPath = mockupDiv.getAttribute("data-mockup");
+          const mockupId = parseInt(mockupDiv.getAttribute("data-id"), 10);
+          const mockupName = mockupDiv.getAttribute("data-name");
+
+          selectedMockups.push({
+            path: mockupPath,
+            id: mockupId,
+            name: mockupName,
+            model: model,
+          });
+        }
+      });
+
+      console.log(`Zaznaczono ${selectedMockups.length} mockupów`);
+    });
+
+    deselectAllButton.addEventListener("click", function () {
+      document.querySelectorAll(".mockup-checkbox").forEach((checkbox) => {
+        checkbox.checked = false;
+      });
+
+      // Clear selected mockups
+      selectedMockups = [];
+      console.log("Wszystkie odznaczone");
+    });
+  }
+}
 
 // Funkcja przypisująca obsługę kliknięć do miniaturek
 function setupThumbnailListeners() {
@@ -155,8 +422,9 @@ function setupThumbnailListeners() {
       const mockupPath = this.getAttribute("data-mockup");
       const mockupId = parseInt(this.getAttribute("data-id"), 10);
       const mockupName = this.getAttribute("data-name");
+      const mockupModel = this.getAttribute("data-model") || "Inne";
 
-      changeMockup(mockupPath, mockupName, mockupId);
+      changeMockup(mockupPath, mockupName, mockupId, mockupModel);
       updateMockupThumbnailSelection(mockupPath);
     });
   });
@@ -171,14 +439,16 @@ function setupThumbnailListeners() {
       const mockupPath = mockupDiv.getAttribute("data-mockup");
       const mockupId = parseInt(mockupDiv.getAttribute("data-id"), 10);
       const mockupName = mockupDiv.getAttribute("data-name");
+      const mockupModel = mockupDiv.getAttribute("data-model") || "Inne";
 
       if (this.checked) {
         // Dodaj do wybranych mockupów
-        if (!selectedMockups.includes(mockupPath)) {
+        if (!selectedMockups.some((m) => m.path === mockupPath)) {
           selectedMockups.push({
             path: mockupPath,
             id: mockupId,
             name: mockupName,
+            model: mockupModel,
           });
         }
       } else {
@@ -483,6 +753,7 @@ async function downloadMultipleMockups() {
     path: currentMockupFile,
     name: currentMockupName,
     id: currentMockupId,
+    model: currentMockupModel,
   };
 
   // Dla każdego wybranego mockupu
@@ -494,18 +765,26 @@ async function downloadMultipleMockups() {
 
     // Zmień mockup
     await new Promise((resolve) => {
-      changeMockup(mockup.path, mockup.name, mockup.id);
+      changeMockup(mockup.path, mockup.name, mockup.id, mockup.model);
       // Daj czas na załadowanie mockupu
       setTimeout(resolve, 200);
     });
 
-    // Pobierz obraz - używając nazwy mockupu w nazwie pliku
-    const fileName = `${mockup.name.replace(/\s+/g, "_")}_${i + 1}.png`;
+    // Pobierz obraz - używając modelu i nazwy mockupu w nazwie pliku
+    const fileName = `${mockup.model || "Inne"}_${mockup.name.replace(
+      /\s+/g,
+      "_"
+    )}_${i + 1}.png`;
     await generateAndDownloadImage(fileName);
   }
 
   // Przywróć oryginalny mockup
-  changeMockup(originalMockup.path, originalMockup.name, originalMockup.id);
+  changeMockup(
+    originalMockup.path,
+    originalMockup.name,
+    originalMockup.id,
+    originalMockup.model
+  );
 
   // Usuń komunikat o postępie
   document.body.removeChild(progressMsg);
@@ -592,9 +871,10 @@ function showDownloadOptions() {
       // Usuń dialog
       document.body.removeChild(dialogOverlay);
 
-      // Generuj i pobierz obraz, używając nazwy mockupu
+      // Generuj i pobierz obraz, używając modelu i nazwy mockupu
       const sanitizedName = currentMockupName.replace(/\s+/g, "_");
-      const fileName = `${sanitizedName}_${size}x${size}.${format}`;
+      const modelPrefix = currentMockupModel ? `${currentMockupModel}_` : "";
+      const fileName = `${modelPrefix}${sanitizedName}_${size}x${size}.${format}`;
       generateAndDownloadImage(fileName, format, parseInt(size));
     });
 }
@@ -823,7 +1103,7 @@ function updateTransform() {
 }
 
 // Funkcja zmieniająca mockup
-function changeMockup(mockupPath, mockupName, mockupId) {
+function changeMockup(mockupPath, mockupName, mockupId, mockupModel) {
   // Save current mockup parameters before changing
   saveCurrentMockupParameters();
 
@@ -831,6 +1111,7 @@ function changeMockup(mockupPath, mockupName, mockupId) {
   currentMockupFile = mockupPath;
   currentMockupName = mockupName || "Mockup";
   currentMockupId = mockupId || 0;
+  currentMockupModel = mockupModel || "Inne";
 
   // Preserve control visibility state
   const controlsWereVisible = controls.style.display === "block";
@@ -920,121 +1201,6 @@ async function scanMockups() {
   }
 }
 
-// Funkcja generująca miniatury mockupów
-function generateMockupThumbnails(mockups) {
-  mockupGallery.innerHTML = ""; // Wyczyść galerię
-
-  if (mockups.length === 0) {
-    // Zamiast tekstu, dodajemy tylko przycisk dodawania mockupów
-    const addButtonHTML = `
-      <div class="mockup-thumbnail window-frame add-mockup-button" title="Dodaj nowy mockup">
-        <div class="window-content">
-          <div class="add-button-content">+</div>
-        </div>
-      </div>
-    `;
-    mockupGallery.innerHTML = addButtonHTML;
-
-    // Dodajemy obsługę przycisku dodawania mockupów
-    const addMockupButton = document.querySelector(".add-mockup-button");
-    if (addMockupButton) {
-      addMockupButton.addEventListener("click", function () {
-        window.location.href = "dodaj.html";
-      });
-    }
-    return;
-  }
-
-  mockups.forEach((mockup, index) => {
-    // Upewnij się, że nazwa mockupu jest czysta i nie zawiera znaczników formatowania
-    const cleanName = mockup.name.replace(/\*/g, "").replace(/#/g, "").trim();
-
-    const thumbnailHTML = `
-      <div class="mockup-thumbnail window-frame ${
-        index === 0 ? "active" : ""
-      }" data-mockup="${mockup.path}" data-id="${
-      mockup.id
-    }" data-name="${cleanName}">
-        <input type="checkbox" class="mockup-checkbox" id="checkbox-mockup-${
-          mockup.id
-        }" />
-        <div class="window-title-bar">${cleanName}</div>
-        <div class="window-content">
-          <img src="${mockup.path}" alt="${cleanName}" />
-        </div>
-      </div>
-    `;
-
-    mockupGallery.innerHTML += thumbnailHTML;
-  });
-
-  // Dodajemy przycisk dodawania nowych mockupów na końcu galerii
-  const addButtonHTML = `
-    <div class="mockup-thumbnail window-frame add-mockup-button" title="Dodaj nowy mockup">
-      <div class="window-content">
-        <div class="add-button-content">+</div>
-      </div>
-    </div>
-  `;
-
-  mockupGallery.innerHTML += addButtonHTML;
-
-  // Ustaw pierwszy mockup jako aktywny
-  if (mockups.length > 0) {
-    currentMockupFile = mockups[0].path;
-    currentMockupName = mockups[0].name;
-    currentMockupId = mockups[0].id;
-    mockupImage.src = currentMockupFile;
-  }
-
-  // Przypisz obsługę kliknięć do nowo wygenerowanych miniaturek
-  setupThumbnailListeners();
-
-  // Przypisz obsługę przycisków zaznaczania/odznaczania wszystkich
-  const selectAllButton = document.getElementById("select-all-mockups");
-  const deselectAllButton = document.getElementById("deselect-all-mockups");
-
-  if (selectAllButton && deselectAllButton) {
-    selectAllButton.addEventListener("click", function () {
-      const checkboxes = document.querySelectorAll(".mockup-checkbox");
-
-      // Wyczyść tablicę wybranych mockupów
-      selectedMockups = [];
-
-      checkboxes.forEach((checkbox) => {
-        checkbox.checked = true;
-
-        // Dodaj mockup do wybranych
-        const mockupDiv = checkbox.closest(".mockup-thumbnail");
-        if (!mockupDiv.classList.contains("add-mockup-button")) {
-          const mockupPath = mockupDiv.getAttribute("data-mockup");
-          const mockupId = parseInt(mockupDiv.getAttribute("data-id"), 10);
-          const mockupName = mockupDiv.getAttribute("data-name");
-
-          selectedMockups.push({
-            path: mockupPath,
-            id: mockupId,
-            name: mockupName,
-          });
-        }
-      });
-
-      console.log("Wszystkie zaznaczone:", selectedMockups);
-    });
-
-    deselectAllButton.addEventListener("click", function () {
-      const checkboxes = document.querySelectorAll(".mockup-checkbox");
-      checkboxes.forEach((checkbox) => {
-        checkbox.checked = false;
-      });
-
-      // Wyczyść listę wybranych mockupów
-      selectedMockups = [];
-      console.log("Wszystkie odznaczone");
-    });
-  }
-}
-
 // Save parameters when page is about to be unloaded
 window.addEventListener("beforeunload", function () {
   saveCurrentMockupParameters();
@@ -1055,7 +1221,7 @@ window.onload = async function () {
   // Skanuj dostępne mockupy
   const availableMockups = await scanMockups();
 
-  // Generuj miniatury
+  // Generuj miniatury z grupowaniem według modelu
   generateMockupThumbnails(availableMockups);
 
   // Ustaw domyślny mockup jeśli istnieje
@@ -1063,7 +1229,8 @@ window.onload = async function () {
     changeMockup(
       availableMockups[0].path,
       availableMockups[0].name,
-      availableMockups[0].id
+      availableMockups[0].id,
+      availableMockups[0].model || "Inne"
     );
   }
 };
