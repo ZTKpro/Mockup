@@ -223,42 +223,59 @@ app.put("/api/mockups/:id/model", express.json(), (req, res) => {
       return res.status(400).json({ error: "Model nie został podany" });
     }
 
-    // Sanitize model name
+    // Sanitize model name but preserve spaces for display
     const sanitizedModel = newModel
       .replace(/[^a-zA-Z0-9ąćęłńóśźżĄĆĘŁŃÓŚŹŻ\s_-]/g, "")
-      .replace(/\s+/g, "_");
+      .trim();
+
+    // For filename, replace spaces with underscores
+    const filenameModel = sanitizedModel.replace(/\s+/g, "_");
 
     // Find the mockup file
     const files = fs.readdirSync(mockupDir);
     let mockupFile = null;
 
+    console.log(`Looking for mockup ID: ${mockupId}`);
+
     for (const file of files) {
       if (file.endsWith(".png")) {
         let id;
 
-        if (file.includes("_")) {
-          id = parseInt(file.split("_")[0], 10);
-        } else {
-          id = parseInt(path.basename(file, ".png"), 10);
-        }
+        try {
+          if (file.includes("_")) {
+            // Try to parse ID from the part before first underscore
+            id = parseInt(file.split("_")[0], 10);
+          } else {
+            // For files without underscore, use the filename as ID
+            id = parseInt(path.basename(file, ".png"), 10);
+          }
 
-        if (id === mockupId) {
-          mockupFile = file;
-          break;
+          if (id === mockupId) {
+            mockupFile = file;
+            break;
+          }
+        } catch (parseError) {
+          console.error(`Error parsing ID from filename ${file}:`, parseError);
+          // Continue to next file if parsing fails
+          continue;
         }
       }
     }
 
     if (!mockupFile) {
-      return res.status(404).json({ error: "Nie znaleziono mockupu" });
+      return res.status(404).json({
+        error: "Nie znaleziono mockupu",
+        mockupId: mockupId,
+      });
     }
 
-    // Parse the filename to extract components
-    const fileNameWithoutExt = path.basename(mockupFile, ".png");
-    const parts = fileNameWithoutExt.split("_");
+    console.log(`Found mockup file: ${mockupFile}`);
 
-    // New filename format: id_model.png
-    const newFileName = `${parts[0]}_${sanitizedModel}.png`;
+    // For simplicity and reliability, use the exact ID from the request
+    // and append new model name, regardless of original filename format
+    const newFileName = `${mockupId}_${filenameModel}.png`;
+
+    console.log(`Renaming ${mockupFile} to ${newFileName}`);
 
     // Rename the file
     fs.renameSync(
@@ -273,7 +290,10 @@ app.put("/api/mockups/:id/model", express.json(), (req, res) => {
     });
   } catch (error) {
     console.error("Error updating mockup model:", error);
-    res.status(500).json({ error: "Błąd aktualizacji modelu mockupu" });
+    res.status(500).json({
+      error: "Błąd aktualizacji modelu mockupu",
+      message: error.message,
+    });
   }
 });
 
