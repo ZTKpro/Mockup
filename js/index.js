@@ -153,7 +153,7 @@ function generateMockupThumbnails(mockups) {
       </div>
     `;
     mockupGallery.innerHTML = addButtonHTML;
-    
+
     // Don't return early - instead, skip to setting up the listeners
   } else {
     // Group mockups by model
@@ -310,20 +310,22 @@ function generateMockupsHTML(mockups) {
   let html = "";
 
   mockups.forEach((mockup) => {
-    const cleanName = mockup.name.replace(/\*/g, "").replace(/#/g, "").trim();
+    // Using model as the display name since we've simplified the structure
+    const displayName = mockup.model
+      .replace(/\*/g, "")
+      .replace(/#/g, "")
+      .trim();
 
     html += `
       <div class="mockup-thumbnail window-frame" 
            data-mockup="${mockup.path}" 
            data-id="${mockup.id}" 
-           data-name="${cleanName}" 
-           data-model="${mockup.model || "Inne"}">
-        <input type="checkbox" class="mockup-checkbox" id="checkbox-mockup-${
-          mockup.id
-        }" />
-        <div class="window-title-bar">${cleanName}</div>
+           data-name="${displayName}" 
+           data-model="${mockup.model}">
+        <input type="checkbox" class="mockup-checkbox" id="checkbox-mockup-${mockup.id}" />
+        <div class="window-title-bar">${displayName}</div>
         <div class="window-content">
-          <img src="${mockup.path}" alt="${cleanName}" />
+          <img src="${mockup.path}" alt="${displayName}" />
         </div>
       </div>
     `;
@@ -873,9 +875,9 @@ function showDownloadOptions() {
       document.body.removeChild(dialogOverlay);
 
       // Generuj i pobierz obraz, używając modelu i nazwy mockupu
-      const sanitizedName = currentMockupName.replace(/\s+/g, "_");
+      const sanitizedName = currentMockupModel.replace(/\s+/g, "_");
       const modelPrefix = currentMockupModel ? `${currentMockupModel}_` : "";
-      const fileName = `${modelPrefix}${sanitizedName}_${size}x${size}.${format}`;
+      const fileName = `${sanitizedName}_${size}x${size}.${format}`;
       generateAndDownloadImage(fileName, format, parseInt(size));
     });
 }

@@ -29,13 +29,8 @@ const mockupStorage = multer.diskStorage({
           .replace(/[^a-zA-Z0-9ąćęłńóśźżĄĆĘŁŃÓŚŹŻ\s_-]/g, "")
           .replace(/\s+/g, "_")
       : "Inne";
-    const mockupName = req.body.mockupName
-      ? req.body.mockupName
-          .replace(/[^a-zA-Z0-9ąćęłńóśźżĄĆĘŁŃÓŚŹŻ\s_-]/g, "")
-          .replace(/\s+/g, "_")
-      : "mockup";
 
-    cb(null, `${mockupNumber}_${mockupModel}_${mockupName}.png`);
+    cb(null, `${mockupNumber}_${mockupModel}.png`);
   },
 });
 
@@ -125,14 +120,9 @@ app.post("/api/upload/mockup", upload.single("mockup"), (req, res) => {
         .replace(/[^a-zA-Z0-9ąćęłńóśźżĄĆĘŁŃÓŚŹŻ\s_-]/g, "")
         .replace(/\s+/g, "_")
     : "Inne";
-  const mockupName = req.body.mockupName
-    ? req.body.mockupName
-        .replace(/[^a-zA-Z0-9ąćęłńóśźżĄĆĘŁŃÓŚŹŻ\s_-]/g, "")
-        .replace(/\s+/g, "_")
-    : "mockup";
 
-  // Create filename
-  const filename = `${mockupNumber}_${mockupModel}_${mockupName}.png`;
+  // Simplified filename format: number_model.png
+  const filename = `${mockupNumber}_${mockupModel}.png`;
   const filepath = path.join(mockupDir, filename);
 
   // Write the file from memory to disk
@@ -147,7 +137,7 @@ app.post("/api/upload/mockup", upload.single("mockup"), (req, res) => {
       success: true,
       filePath: `/uploads/mockups/${filename}`,
       mockupNumber: mockupNumber,
-      mockupName: mockupName,
+      mockupName: mockupModel, // Use model as name for backward compatibility
       mockupModel: mockupModel,
     });
   });
@@ -163,33 +153,23 @@ app.get("/api/mockups", (req, res) => {
       if (file.endsWith(".png")) {
         const filePath = `/uploads/mockups/${file}`;
         let id,
-          name,
           model = "Inne"; // Default model for backward compatibility
 
         if (file.includes("_")) {
           const parts = path.basename(file, ".png").split("_");
           id = parseInt(parts[0], 10) || files.indexOf(file) + 1;
 
-          if (parts.length >= 3) {
-            // New format with model: id_model_name.png
-            // MODIFIED: Replace underscores with spaces for display
-            // But only for the model part, not the entire filename!
-            model = parts[1].replace(/_/g, " ");
-            name = parts.slice(2).join("_").replace(/_/g, " ");
-          } else {
-            // Old format: id_name.png
-            name = parts.slice(1).join("_").replace(/_/g, " ");
-          }
+          // New parsing logic: everything after the first underscore is the model
+          model = parts.slice(1).join("_").replace(/_/g, " ");
         } else {
           // Very old format: id.png
           const fileNameWithoutExt = path.basename(file, ".png");
           id = parseInt(fileNameWithoutExt, 10) || files.indexOf(file) + 1;
-          name = `Mockup ${id}`;
         }
 
         mockups.push({
           id: id,
-          name: name,
+          name: model, // Use model as name for display purposes
           model: model,
           path: filePath,
           fileName: file,
@@ -276,20 +256,9 @@ app.put("/api/mockups/:id/model", express.json(), (req, res) => {
     // Parse the filename to extract components
     const fileNameWithoutExt = path.basename(mockupFile, ".png");
     const parts = fileNameWithoutExt.split("_");
-    let newFileName;
 
-    if (parts.length >= 3) {
-      // Current format: id_model_name.png
-      newFileName = `${parts[0]}_${sanitizedModel}_${parts
-        .slice(2)
-        .join("_")}.png`;
-    } else if (parts.length === 2) {
-      // Old format: id_name.png
-      newFileName = `${parts[0]}_${sanitizedModel}_${parts[1]}.png`;
-    } else {
-      // Very old format: id.png
-      newFileName = `${parts[0]}_${sanitizedModel}_mockup.png`;
-    }
+    // New filename format: id_model.png
+    const newFileName = `${parts[0]}_${sanitizedModel}.png`;
 
     // Rename the file
     fs.renameSync(

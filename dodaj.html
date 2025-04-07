@@ -242,6 +242,29 @@
         margin-bottom: 15px;
       }
 
+      .mockup-model {
+        font-size: 12px;
+        color: #666;
+        flex: 1;
+        text-align: center;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        padding: 0 5px;
+      }
+
+      .mockup-item {
+        margin-bottom: 15px;
+      }
+
+      .model-header {
+        background-color: #f1f1f1;
+        padding: 8px 12px;
+        margin-bottom: 10px;
+        border-radius: 4px;
+        font-weight: bold;
+      }
+
       /* Responsive adjustments */
       @media (max-width: 768px) {
         .mockup-gallery {
@@ -638,16 +661,13 @@
             return;
           }
 
-          // Get the model from the input - FIXED: Handle spaces correctly
+          // Get the model from the input - spaces are preserved
           let model = modelInput.value.trim();
 
           // If model is empty after trimming, use "Inne"
           if (!model) {
             model = "Inne";
           }
-
-          // Do NOT replace spaces with underscores here - let the server handle it
-          // This way spaces in the input will be preserved until server processing
 
           console.log("Using model (before server processing):", model);
 
@@ -673,7 +693,7 @@
               formData.append("mockup", files[i]);
               formData.append("mockupNumber", nextMockupNumber + i);
               formData.append("mockupModel", model); // Send model with spaces intact
-              formData.append("mockupName", "mockup");
+              // No longer sending mockupName field - we're only using model
 
               const uploadPromise = fetch("/api/upload/mockup", {
                 method: "POST",
