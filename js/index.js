@@ -139,6 +139,19 @@ function loadParametersFromLocalStorage() {
 // Obsługa uploadu pliku przez kliknięcie
 uploadInput.addEventListener("change", handleFileSelect);
 
+function setupModelGroupListeners() {
+  const modelHeaders = document.querySelectorAll(".model-header");
+  modelHeaders.forEach((header) => {
+    header.addEventListener("click", function () {
+      const mockupsContainer = this.nextElementSibling;
+      const icon = this.querySelector(".model-collapse-icon");
+
+      mockupsContainer.classList.toggle("collapsed");
+      icon.classList.toggle("collapsed");
+    });
+  });
+}
+
 // Function to generate mockup thumbnails grouped by model
 function generateMockupThumbnails(mockups) {
   mockupGallery.innerHTML = ""; // Clear gallery

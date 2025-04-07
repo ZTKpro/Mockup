@@ -45,9 +45,6 @@ h1 {
 }
 
 .mockup-gallery {
-  margin-top: 20px;
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
   gap: 10px;
 }
 
@@ -505,7 +502,92 @@ img {
   }
 }
 
+.model-group {
+  margin-bottom: 20px;
+  background-color: #f9f9f9;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid #eaeaea;
+}
 
+/* Nagłówek grupy modeli */
+.model-header {
+  background-color: #3498db;
+  color: white;
+  padding: 8px 12px;
+  font-weight: bold;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  cursor: pointer;
+}
+
+.model-name {
+  font-size: 14px;
+}
+
+.model-count {
+  font-size: 12px;
+  opacity: 0.8;
+}
+
+/* Kontener mockupów w grupie */
+.model-mockups {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+  padding: 10px;
+}
+
+/* Ikonka zwijania/rozwijania */
+.model-collapse-icon {
+  transition: transform 0.3s;
+}
+
+.model-collapse-icon.collapsed {
+  transform: rotate(-90deg);
+}
+
+/* Ukrywanie zawartości po zwinięciu */
+.model-mockups.collapsed {
+  display: none;
+}
+
+/* Styl dla przycisków filtrowania */
+.filter-header {
+  font-weight: bold;
+  margin-bottom: 8px;
+}
+
+.model-filter {
+  margin-bottom: 5px;
+}
+
+.model-filters {
+  margin-bottom: 15px;
+  padding: 10px;
+  background-color: #f0f0f0;
+  border-radius: 5px;
+}
+
+/* Style dla responsywności */
+@media (max-width: 992px) {
+  .model-mockups {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+@media (max-width: 768px) {
+  .model-mockups {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 480px) {
+  .model-mockups {
+    grid-template-columns: repeat(1, 1fr);
+  }
+}
 
 @media (max-width: 768px) {
   .mockup-gallery {

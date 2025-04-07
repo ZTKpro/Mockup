@@ -100,8 +100,6 @@
       }
 
       .mockup-gallery {
-        display: grid;
-        grid-template-columns: repeat(4, 1fr);
         gap: 15px;
         min-height: 200px;
       }
@@ -263,6 +261,10 @@
         margin-bottom: 10px;
         border-radius: 4px;
         font-weight: bold;
+      }
+
+      .mockup-item {
+        width: 250px;
       }
 
       /* Responsive adjustments */
@@ -428,6 +430,7 @@
         }
 
         // Function to generate mockup manager interface
+
         function generateMockupManager(mockups) {
           mockupGallery.innerHTML = ""; // Clear gallery
 
@@ -464,23 +467,34 @@
                 model + ` (${mockupsByModel[model].length})`;
               mockupGallery.appendChild(modelHeader);
 
-              // Add mockups for this model
+              // Create a flex container for this model's mockups
+              const flexContainer = document.createElement("div");
+              flexContainer.className = "mockup-flex-container";
+              flexContainer.style.display = "flex";
+              flexContainer.style.flexWrap = "wrap";
+              mockupGallery.appendChild(flexContainer);
+
+              // Add mockups for this model to the flex container
               mockupsByModel[model].forEach((mockup) => {
-                const itemHTML = `
-          <div class="mockup-item" data-id="${mockup.id}" data-path="${mockup.path}">
-            <div class="mockup-thumbnail">
-              <img src="${mockup.path}" alt="Mockup ${mockup.id}" />
-            </div>
-            <div class="mockup-controls">
-              <div class="mockup-model">${mockup.model}</div>
-              <div class="mockup-actions">
-                <button class="action-btn edit-model" title="Zmień model">📱</button>
-                <button class="action-btn delete" title="Usuń mockup">×</button>
-              </div>
+                const mockupItem = document.createElement("div");
+                mockupItem.className = "mockup-item";
+                mockupItem.dataset.id = mockup.id;
+                mockupItem.dataset.path = mockup.path;
+
+                mockupItem.innerHTML = `
+          <div class="mockup-thumbnail">
+            <img src="${mockup.path}" alt="Mockup ${mockup.id}" />
+          </div>
+          <div class="mockup-controls">
+            <div class="mockup-model">${mockup.model}</div>
+            <div class="mockup-actions">
+              <button class="action-btn edit-model" title="Zmień model">📱</button>
+              <button class="action-btn delete" title="Usuń mockup">×</button>
             </div>
           </div>
         `;
-                mockupGallery.innerHTML += itemHTML;
+
+                flexContainer.appendChild(mockupItem);
               });
             });
 
