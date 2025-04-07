@@ -638,8 +638,18 @@
             return;
           }
 
-          // Get the model from the input
-          const model = modelInput.value.trim() || "Inne";
+          // Get the model from the input - FIXED: Handle spaces correctly
+          let model = modelInput.value.trim();
+
+          // If model is empty after trimming, use "Inne"
+          if (!model) {
+            model = "Inne";
+          }
+
+          // Do NOT replace spaces with underscores here - let the server handle it
+          // This way spaces in the input will be preserved until server processing
+
+          console.log("Using model (before server processing):", model);
 
           // Show upload indicator
           uploadIndicator.style.display = "flex";
@@ -662,7 +672,8 @@
               const formData = new FormData();
               formData.append("mockup", files[i]);
               formData.append("mockupNumber", nextMockupNumber + i);
-              formData.append("mockupModel", model); // Include the model
+              formData.append("mockupModel", model); // Send model with spaces intact
+              formData.append("mockupName", "mockup");
 
               const uploadPromise = fetch("/api/upload/mockup", {
                 method: "POST",

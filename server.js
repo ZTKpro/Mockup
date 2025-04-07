@@ -103,18 +103,53 @@ app.post(
   }
 );
 
+const storage = multer.memoryStorage();
+const upload = multer({
+  storage: storage,
+  fileFilter: fileFilter,
+  limits: {
+    fileSize: 10 * 1024 * 1024, // 10MB limit
+  },
+});
+
 // API endpoint to upload mockups - these are still saved to disk
-app.post("/api/upload/mockup", uploadMockup.single("mockup"), (req, res) => {
+app.post("/api/upload/mockup", upload.single("mockup"), (req, res) => {
   if (!req.file) {
     return res.status(400).json({ error: "Nie przesłano pliku" });
   }
 
-  // Return the file path and additional info
-  res.json({
-    success: true,
-    filePath: `/uploads/mockups/${req.file.filename}`,
-    mockupNumber: req.body.mockupNumber || null,
-    mockupName: req.body.mockupName || "mockup",
+  // Now we have access to all form fields
+  const mockupNumber = req.body.mockupNumber || Date.now();
+  const mockupModel = req.body.mockupModel
+    ? req.body.mockupModel
+        .replace(/[^a-zA-Z0-9ąćęłńóśźżĄĆĘŁŃÓŚŹŻ\s_-]/g, "")
+        .replace(/\s+/g, "_")
+    : "Inne";
+  const mockupName = req.body.mockupName
+    ? req.body.mockupName
+        .replace(/[^a-zA-Z0-9ąćęłńóśźżĄĆĘŁŃÓŚŹŻ\s_-]/g, "")
+        .replace(/\s+/g, "_")
+    : "mockup";
+
+  // Create filename
+  const filename = `${mockupNumber}_${mockupModel}_${mockupName}.png`;
+  const filepath = path.join(mockupDir, filename);
+
+  // Write the file from memory to disk
+  fs.writeFile(filepath, req.file.buffer, (err) => {
+    if (err) {
+      console.error("Error saving file:", err);
+      return res.status(500).json({ error: "Błąd zapisywania pliku" });
+    }
+
+    // Return success response
+    res.json({
+      success: true,
+      filePath: `/uploads/mockups/${filename}`,
+      mockupNumber: mockupNumber,
+      mockupName: mockupName,
+      mockupModel: mockupModel,
+    });
   });
 });
 
@@ -137,7 +172,9 @@ app.get("/api/mockups", (req, res) => {
 
           if (parts.length >= 3) {
             // New format with model: id_model_name.png
-            model = parts[1];
+            // MODIFIED: Replace underscores with spaces for display
+            // But only for the model part, not the entire filename!
+            model = parts[1].replace(/_/g, " ");
             name = parts.slice(2).join("_").replace(/_/g, " ");
           } else {
             // Old format: id_name.png
@@ -181,7 +218,8 @@ app.get("/api/models", (req, res) => {
           const parts = path.basename(file, ".png").split("_");
           if (parts.length >= 3) {
             // New format with model: id_model_name.png
-            model = parts[1];
+            // MODIFIED: Replace underscores with spaces for display
+            model = parts[1].replace(/_/g, " ");
           }
         }
 

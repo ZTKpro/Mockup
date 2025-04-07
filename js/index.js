@@ -153,66 +153,67 @@ function generateMockupThumbnails(mockups) {
       </div>
     `;
     mockupGallery.innerHTML = addButtonHTML;
-    return;
-  }
+    
+    // Don't return early - instead, skip to setting up the listeners
+  } else {
+    // Group mockups by model
+    const mockupsByModel = {};
+    mockups.forEach((mockup) => {
+      const model = mockup.model || "Inne";
+      if (!mockupsByModel[model]) {
+        mockupsByModel[model] = [];
+      }
+      mockupsByModel[model].push(mockup);
+    });
 
-  // Group mockups by model
-  const mockupsByModel = {};
-  mockups.forEach((mockup) => {
-    const model = mockup.model || "Inne";
-    if (!mockupsByModel[model]) {
-      mockupsByModel[model] = [];
-    }
-    mockupsByModel[model].push(mockup);
-  });
+    // Generate model filters
+    generateModelFilters(Object.keys(mockupsByModel).sort(), mockupsByModel);
 
-  // Generate model filters
-  generateModelFilters(Object.keys(mockupsByModel).sort(), mockupsByModel);
+    // Generate mockup groups by model
+    Object.keys(mockupsByModel)
+      .sort()
+      .forEach((model) => {
+        const mockupsForModel = mockupsByModel[model];
 
-  // Generate mockup groups by model
-  Object.keys(mockupsByModel)
-    .sort()
-    .forEach((model) => {
-      const mockupsForModel = mockupsByModel[model];
-
-      const modelGroupHTML = `
-      <div class="model-group" data-model="${model}">
-        <div class="model-header">
-          <div class="model-name">${model} <span class="model-count">(${
-        mockupsForModel.length
-      })</span></div>
-          <span class="model-collapse-icon">▼</span>
+        const modelGroupHTML = `
+        <div class="model-group" data-model="${model}">
+          <div class="model-header">
+            <div class="model-name">${model} <span class="model-count">(${
+          mockupsForModel.length
+        })</span></div>
+            <span class="model-collapse-icon">▼</span>
+          </div>
+          <div class="model-mockups">
+            ${generateMockupsHTML(mockupsForModel)}
+          </div>
         </div>
-        <div class="model-mockups">
-          ${generateMockupsHTML(mockupsForModel)}
+      `;
+
+        mockupGallery.innerHTML += modelGroupHTML;
+      });
+
+    // Add button for adding new mockups
+    const addButtonHTML = `
+      <div class="mockup-thumbnail window-frame add-mockup-button" title="Dodaj nowy mockup">
+        <div class="window-content">
+          <div class="add-button-content">+</div>
         </div>
       </div>
     `;
 
-      mockupGallery.innerHTML += modelGroupHTML;
-    });
+    mockupGallery.innerHTML += addButtonHTML;
 
-  // Add button for adding new mockups
-  const addButtonHTML = `
-    <div class="mockup-thumbnail window-frame add-mockup-button" title="Dodaj nowy mockup">
-      <div class="window-content">
-        <div class="add-button-content">+</div>
-      </div>
-    </div>
-  `;
-
-  mockupGallery.innerHTML += addButtonHTML;
-
-  // Set first mockup as active if available
-  if (mockups.length > 0) {
-    currentMockupFile = mockups[0].path;
-    currentMockupName = mockups[0].name;
-    currentMockupId = mockups[0].id;
-    currentMockupModel = mockups[0].model || "Inne";
-    mockupImage.src = currentMockupFile;
+    // Set first mockup as active if available
+    if (mockups.length > 0) {
+      currentMockupFile = mockups[0].path;
+      currentMockupName = mockups[0].name;
+      currentMockupId = mockups[0].id;
+      currentMockupModel = mockups[0].model || "Inne";
+      mockupImage.src = currentMockupFile;
+    }
   }
 
-  // Setup event listeners
+  // Setup event listeners - Always run these, regardless of whether there are mockups or not
   setupModelGroupListeners();
   setupThumbnailListeners();
   setupSelectionButtons();
