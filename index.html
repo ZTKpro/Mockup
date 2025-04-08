@@ -5,6 +5,218 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Edytor etui na telefon</title>
     <link rel="stylesheet" href="./css/styles.css" />
+    <style>
+      /* Style dla dymka kalibracji */
+      .calibration-bubble {
+        position: fixed;
+        bottom: 30px;
+        right: 30px;
+        width: 60px;
+        height: 60px;
+        background-color: #3498db;
+        border-radius: 50%;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        color: white;
+        font-size: 24px;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+        cursor: pointer;
+        z-index: 999;
+        transition: all 0.3s ease;
+      }
+
+      .calibration-bubble:hover {
+        background-color: #2980b9;
+        transform: scale(1.05);
+      }
+
+      /* Style dla panelu kalibracji */
+      .calibration-panel {
+        position: fixed;
+        bottom: 100px;
+        right: 30px;
+        width: 350px;
+        background-color: white;
+        border-radius: 10px;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+        padding: 20px;
+        z-index: 998;
+        display: none;
+        transition: all 0.3s ease;
+      }
+
+      .calibration-panel.active {
+        display: block;
+        animation: slideIn 0.3s forwards;
+      }
+
+      @keyframes slideIn {
+        from {
+          opacity: 0;
+          transform: translateY(20px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      .calibration-title {
+        font-weight: bold;
+        margin-bottom: 15px;
+        padding-bottom: 10px;
+        border-bottom: 1px solid #eee;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+
+      .calibration-close {
+        font-size: 20px;
+        cursor: pointer;
+        color: #95a5a6;
+        padding: 5px;
+      }
+
+      .calibration-close:hover {
+        color: #e74c3c;
+      }
+
+      .calibration-section {
+        margin-bottom: 15px;
+      }
+
+      .calibration-section-title {
+        font-weight: bold;
+        margin-bottom: 10px;
+        color: #2c3e50;
+      }
+
+      /* Style dla przełączników */
+      .toggle-switch {
+        position: relative;
+        display: inline-block;
+        width: 50px;
+        height: 24px;
+        margin-right: 10px;
+      }
+
+      .toggle-switch input {
+        opacity: 0;
+        width: 0;
+        height: 0;
+      }
+
+      .toggle-slider {
+        position: absolute;
+        cursor: pointer;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background-color: #ccc;
+        transition: 0.4s;
+        border-radius: 24px;
+      }
+
+      .toggle-slider:before {
+        position: absolute;
+        content: "";
+        height: 16px;
+        width: 16px;
+        left: 4px;
+        bottom: 4px;
+        background-color: white;
+        transition: 0.4s;
+        border-radius: 50%;
+      }
+
+      input:checked + .toggle-slider {
+        background-color: #2196f3;
+      }
+
+      input:checked + .toggle-slider:before {
+        transform: translateX(26px);
+      }
+
+      .calibration-option {
+        display: flex;
+        align-items: center;
+        margin-bottom: 10px;
+      }
+
+      .calibration-option-label {
+        flex: 1;
+      }
+
+      .calibration-factor-container {
+        display: flex;
+        align-items: center;
+        margin-bottom: 10px;
+      }
+
+      .calibration-factor-label {
+        flex: 1;
+      }
+
+      .calibration-factor-input {
+        width: 70px;
+        padding: 5px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        text-align: center;
+      }
+
+      .calibration-factor-value {
+        width: 30px;
+        text-align: right;
+        margin-left: 10px;
+        font-weight: bold;
+      }
+
+      .calibration-presets {
+        display: flex;
+        justify-content: space-between;
+        margin-top: 15px;
+      }
+
+      .calibration-actions {
+        display: flex;
+        justify-content: space-between;
+        margin-top: 15px;
+        padding-top: 15px;
+        border-top: 1px solid #eee;
+      }
+
+      .calibration-save-button {
+        padding: 8px 15px;
+        background-color: #27ae60;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        transition: background-color 0.3s;
+      }
+
+      .calibration-save-button:hover {
+        background-color: #2ecc71;
+      }
+
+      .calibration-reset-button {
+        padding: 8px 15px;
+        background-color: #e74c3c;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        transition: background-color 0.3s;
+      }
+
+      .calibration-reset-button:hover {
+        background-color: #c0392b;
+      }
+    </style>
   </head>
   <body>
     <div class="container">
@@ -141,7 +353,554 @@
       </div>
     </div>
 
+    <!-- Dymek kalibracji -->
+    <div class="calibration-bubble" id="calibration-bubble">⚙️</div>
+
+    <!-- Panel kalibracji -->
+    <div class="calibration-panel" id="calibration-panel">
+      <div class="calibration-title">
+        Kalibracja generowania obrazu
+        <span class="calibration-close" id="calibration-close">×</span>
+      </div>
+
+      <div class="calibration-section">
+        <div class="calibration-section-title">Współczynniki pozycji</div>
+
+        <div class="calibration-factor-container">
+          <span class="calibration-factor-label">Współczynnik pozycji X:</span>
+          <input
+            type="number"
+            class="calibration-factor-input"
+            id="x-position-factor"
+            step="0.1"
+            min="0.1"
+            max="5.0"
+            value="1.65"
+          />
+          <span class="calibration-factor-value" id="x-position-factor-value"
+            >1.65</span
+          >
+        </div>
+
+        <div class="calibration-factor-container">
+          <span class="calibration-factor-label">Współczynnik pozycji Y:</span>
+          <input
+            type="number"
+            class="calibration-factor-input"
+            id="y-position-factor"
+            step="0.1"
+            min="0.1"
+            max="5.0"
+            value="1.65"
+          />
+          <span class="calibration-factor-value" id="y-position-factor-value"
+            >1.65</span
+          >
+        </div>
+      </div>
+
+      <div class="calibration-section">
+        <div class="calibration-section-title">Współczynnik powiększenia</div>
+        <div class="calibration-factor-container">
+          <span class="calibration-factor-label">Współczynnik zoom:</span>
+          <input
+            type="number"
+            class="calibration-factor-input"
+            id="zoom-factor"
+            step="0.01"
+            min="0.1"
+            max="5.0"
+            value="0.64"
+          />
+          <span class="calibration-factor-value" id="zoom-factor-value"
+            >0.64</span
+          >
+        </div>
+      </div>
+
+      <div class="calibration-section">
+        <div class="calibration-section-title">Predefiniowane ustawienia</div>
+        <div class="calibration-presets">
+          <button
+            class="calibration-preset-button"
+            data-x="1.0"
+            data-y="1.0"
+            data-zoom="0.5"
+          >
+            Małe etui
+          </button>
+          <button
+            class="calibration-preset-button"
+            data-x="1.65"
+            data-y="1.65"
+            data-zoom="0.64"
+          >
+            Domyślne
+          </button>
+          <button
+            class="calibration-preset-button"
+            data-x="2.0"
+            data-y="2.0"
+            data-zoom="0.8"
+          >
+            Duże etui
+          </button>
+        </div>
+      </div>
+
+      <div class="calibration-actions">
+        <button class="calibration-reset-button" id="calibration-reset">
+          Resetuj
+        </button>
+        <button class="calibration-save-button" id="calibration-save">
+          Zapisz
+        </button>
+      </div>
+    </div>
+
     <script src="./js/index.js"></script>
     <script src="./js/auth.js"></script>
+    <script>
+      document.addEventListener("DOMContentLoaded", function () {
+        // Elementy DOM dla kalibracji
+        const calibrationBubble = document.getElementById("calibration-bubble");
+        const calibrationPanel = document.getElementById("calibration-panel");
+        const calibrationClose = document.getElementById("calibration-close");
+        const calibrationSave = document.getElementById("calibration-save");
+        const calibrationReset = document.getElementById("calibration-reset");
+
+        // Elementy pól kalibracji
+        const xPositionFactor = document.getElementById("x-position-factor");
+        const yPositionFactor = document.getElementById("y-position-factor");
+        const zoomFactor = document.getElementById("zoom-factor");
+
+        // Wartości do wyświetlania
+        const xPositionFactorValue = document.getElementById(
+          "x-position-factor-value"
+        );
+        const yPositionFactorValue = document.getElementById(
+          "y-position-factor-value"
+        );
+        const zoomFactorValue = document.getElementById("zoom-factor-value");
+
+        // Predefiniowane ustawienia
+        const presetButtons = document.querySelectorAll(
+          ".calibration-preset-button"
+        );
+
+        // Domyślne wartości kalibracji
+        const defaultCalibration = {
+          xPositionFactor: 1.65,
+          yPositionFactor: 1.65,
+          zoomFactor: 0.64,
+        };
+
+        // Wartości kalibracji
+        let calibration = {
+          xPositionFactor: 1.65,
+          yPositionFactor: 1.65,
+          zoomFactor: 0.64,
+        };
+
+        // Wczytaj zapisane wartości kalibracji z localStorage
+        function loadCalibration() {
+          const savedCalibration = localStorage.getItem("imageCalibration");
+          if (savedCalibration) {
+            try {
+              calibration = JSON.parse(savedCalibration);
+
+              // Aktualizuj pola formularza
+              xPositionFactor.value = calibration.xPositionFactor;
+              yPositionFactor.value = calibration.yPositionFactor;
+              zoomFactor.value = calibration.zoomFactor;
+
+              // Aktualizuj wyświetlane wartości
+              xPositionFactorValue.textContent = calibration.xPositionFactor;
+              yPositionFactorValue.textContent = calibration.yPositionFactor;
+              zoomFactorValue.textContent = calibration.zoomFactor;
+
+              console.log(
+                "Wczytano zapisane wartości kalibracji:",
+                calibration
+              );
+            } catch (e) {
+              console.error("Błąd wczytywania kalibracji:", e);
+              resetToDefaultCalibration();
+            }
+          }
+        }
+
+        // Zapisz wartości kalibracji
+        function saveCalibration() {
+          // Pobierz wartości z pól formularza
+          calibration.xPositionFactor = parseFloat(xPositionFactor.value);
+          calibration.yPositionFactor = parseFloat(yPositionFactor.value);
+          calibration.zoomFactor = parseFloat(zoomFactor.value);
+
+          // Zapisz w localStorage
+          localStorage.setItem("imageCalibration", JSON.stringify(calibration));
+          console.log("Zapisano wartości kalibracji:", calibration);
+
+          // Monkeypatch funkcji generowania obrazu
+          monkeyPatchGenerateAndDownloadImage();
+
+          // Pokaż powiadomienie
+          showNotification("Zapisano ustawienia kalibracji");
+
+          // Zamknij panel
+          calibrationPanel.classList.remove("active");
+        }
+
+        // Resetuj do domyślnych wartości
+        function resetToDefaultCalibration() {
+          // Przypisz domyślne wartości
+          xPositionFactor.value = defaultCalibration.xPositionFactor;
+          yPositionFactor.value = defaultCalibration.yPositionFactor;
+          zoomFactor.value = defaultCalibration.zoomFactor;
+
+          // Aktualizuj wyświetlane wartości
+          xPositionFactorValue.textContent = defaultCalibration.xPositionFactor;
+          yPositionFactorValue.textContent = defaultCalibration.yPositionFactor;
+          zoomFactorValue.textContent = defaultCalibration.zoomFactor;
+        }
+
+        // Monkeypatch funkcji generowania obrazu
+        function monkeyPatchGenerateAndDownloadImage() {
+          // Sprawdź, czy funkcja istnieje
+          if (typeof window.generateAndDownloadImage !== "function") {
+            console.error("Funkcja generateAndDownloadImage nie istnieje!");
+            return;
+          }
+
+          // Zachowaj oryginalną funkcję
+          if (!window.originalGenerateAndDownloadImage) {
+            window.originalGenerateAndDownloadImage =
+              window.generateAndDownloadImage;
+          }
+
+          // Nadpisz funkcję
+          window.generateAndDownloadImage = async function (
+            fileName = "projekt-etui.png",
+            format = "png",
+            size = 1200
+          ) {
+            const progressMsg = document.createElement("div");
+            progressMsg.className = "progress-message";
+            progressMsg.textContent =
+              "Trwa generowanie obrazu, proszę czekać...";
+            document.body.appendChild(progressMsg);
+
+            return new Promise((resolve) => {
+              setTimeout(async function () {
+                try {
+                  const canvas = document.createElement("canvas");
+                  canvas.width = size;
+                  canvas.height = size;
+                  const ctx = canvas.getContext("2d");
+
+                  const mockupImg = new Image();
+                  const userImg = new Image();
+
+                  let imagesLoaded = 0;
+                  let hasError = false;
+
+                  function handleImageError(message) {
+                    hasError = true;
+                    console.error(message);
+                    document.body.removeChild(progressMsg);
+                    alert("Błąd: " + message);
+                    resolve(false);
+                  }
+
+                  function drawAndDownload() {
+                    if (hasError) return resolve(false);
+
+                    try {
+                      const mockupScaleFactor = Math.min(
+                        size / mockupImg.naturalWidth,
+                        size / mockupImg.naturalHeight
+                      );
+
+                      const drawWidth =
+                        mockupImg.naturalWidth * mockupScaleFactor;
+                      const drawHeight =
+                        mockupImg.naturalHeight * mockupScaleFactor;
+
+                      const mockupX = (canvas.width - drawWidth) / 2;
+                      const mockupY = (canvas.height - drawHeight) / 2;
+
+                      const imageOnTop =
+                        parseInt(imagePreview.style.zIndex || "5") >= 10;
+
+                      if (imageOnTop) {
+                        ctx.drawImage(
+                          mockupImg,
+                          mockupX,
+                          mockupY,
+                          drawWidth,
+                          drawHeight
+                        );
+                        drawUserImage();
+                      } else {
+                        drawUserImage();
+                        ctx.drawImage(
+                          mockupImg,
+                          mockupX,
+                          mockupY,
+                          drawWidth,
+                          drawHeight
+                        );
+                      }
+
+                      function drawUserImage() {
+                        const canvasCenterX = canvas.width / 2;
+                        const canvasCenterY = canvas.height / 2;
+
+                        // Używamy wartości kalibracji z panelu kalibracji
+                        const X_POSITION_FACTOR = calibration.xPositionFactor;
+                        const Y_POSITION_FACTOR = calibration.yPositionFactor;
+                        const ZOOM_FACTOR = calibration.zoomFactor;
+
+                        // Calculate scaled position values
+                        const scaledX =
+                          currentX * mockupScaleFactor * X_POSITION_FACTOR;
+                        const scaledY =
+                          currentY * mockupScaleFactor * Y_POSITION_FACTOR;
+
+                        const userImageX = canvasCenterX + scaledX;
+                        const userImageY = canvasCenterY + scaledY;
+
+                        ctx.save();
+                        ctx.translate(userImageX, userImageY);
+                        ctx.rotate((currentRotation * Math.PI) / 180);
+
+                        // Use the separate zoom factor for scaling
+                        const scaledZoom =
+                          (currentZoom / 100) * mockupScaleFactor * ZOOM_FACTOR;
+                        ctx.scale(scaledZoom, scaledZoom);
+
+                        const userImgWidth = userImg.naturalWidth;
+                        const userImgHeight = userImg.naturalHeight;
+                        ctx.drawImage(
+                          userImg,
+                          -userImgWidth / 2,
+                          -userImgHeight / 2
+                        );
+
+                        ctx.restore();
+                      }
+
+                      if (canvas.toBlob) {
+                        const mimeType =
+                          format === "jpg" ? "image/jpeg" : "image/png";
+                        const quality = format === "jpg" ? 0.9 : undefined;
+
+                        canvas.toBlob(
+                          function (blob) {
+                            downloadUsingBlob(blob);
+                          },
+                          mimeType,
+                          quality
+                        );
+                      } else {
+                        const dataURL = canvas.toDataURL(
+                          format === "jpg" ? "image/jpeg" : "image/png"
+                        );
+                        downloadUsingDataURL(dataURL);
+                      }
+                    } catch (e) {
+                      console.error("Błąd przy rysowaniu:", e);
+                      document.body.removeChild(progressMsg);
+                      alert(
+                        "Wystąpił błąd podczas renderowania obrazu: " +
+                          e.message
+                      );
+                      resolve(false);
+                    }
+                  }
+
+                  function downloadUsingBlob(blob) {
+                    try {
+                      const url = URL.createObjectURL(blob);
+                      const a = document.createElement("a");
+                      a.href = url;
+                      a.download = fileName;
+                      document.body.appendChild(a);
+                      a.click();
+
+                      setTimeout(function () {
+                        document.body.removeChild(a);
+                        URL.revokeObjectURL(url);
+                        document.body.removeChild(progressMsg);
+                        resolve(true);
+                      }, 100);
+                    } catch (e) {
+                      console.error("Błąd przy pobieraniu (blob):", e);
+                      document.body.removeChild(progressMsg);
+                      alert(
+                        "Wystąpił błąd podczas pobierania obrazu: " + e.message
+                      );
+                      resolve(false);
+                    }
+                  }
+
+                  function downloadUsingDataURL(dataURL) {
+                    try {
+                      const a = document.createElement("a");
+                      a.href = dataURL;
+                      a.download = fileName;
+                      document.body.appendChild(a);
+                      a.click();
+
+                      setTimeout(function () {
+                        document.body.removeChild(a);
+                        document.body.removeChild(progressMsg);
+                        resolve(true);
+                      }, 100);
+                    } catch (e) {
+                      console.error("Błąd przy pobieraniu (dataURL):", e);
+                      document.body.removeChild(progressMsg);
+                      alert(
+                        "Wystąpił błąd podczas pobierania obrazu: " + e.message
+                      );
+                      resolve(false);
+                    }
+                  }
+
+                  mockupImg.onerror = function () {
+                    handleImageError(
+                      "Nie można załadować obrazu mockupu: " + mockupImage.src
+                    );
+                  };
+
+                  userImg.onerror = function () {
+                    handleImageError(
+                      "Nie można załadować obrazu użytkownika: " +
+                        imagePreview.src
+                    );
+                  };
+
+                  mockupImg.onload = function () {
+                    imagesLoaded++;
+                    if (imagesLoaded === 2) drawAndDownload();
+                  };
+
+                  userImg.onload = function () {
+                    imagesLoaded++;
+                    if (imagesLoaded === 2) drawAndDownload();
+                  };
+
+                  mockupImg.crossOrigin = "Anonymous";
+                  userImg.crossOrigin = "Anonymous";
+                  const timestamp = new Date().getTime();
+                  mockupImg.src = mockupImage.src + "?t=" + timestamp;
+                  userImg.src = imagePreview.src;
+
+                  setTimeout(function () {
+                    if (imagesLoaded < 2 && !hasError) {
+                      handleImageError(
+                        "Przekroczono limit czasu ładowania obrazów"
+                      );
+                    }
+                  }, 10000);
+                } catch (e) {
+                  console.error("Błąd generowania obrazu:", e);
+                  document.body.removeChild(progressMsg);
+                  alert(
+                    "Wystąpił błąd podczas generowania obrazu: " + e.message
+                  );
+                  resolve(false);
+                }
+              }, 100);
+            });
+          };
+
+          console.log(
+            "Nadpisano funkcję generateAndDownloadImage z nowymi współczynnikami kalibracji."
+          );
+        }
+
+        // Funkcja wyświetlająca powiadomienie
+        function showNotification(message) {
+          const notification = document.createElement("div");
+          notification.style.position = "fixed";
+          notification.style.bottom = "20px";
+          notification.style.left = "50%";
+          notification.style.transform = "translateX(-50%)";
+          notification.style.backgroundColor = "rgba(0, 0, 0, 0.8)";
+          notification.style.color = "white";
+          notification.style.padding = "10px 20px";
+          notification.style.borderRadius = "5px";
+          notification.style.zIndex = "9999";
+          notification.textContent = message;
+
+          document.body.appendChild(notification);
+
+          setTimeout(() => {
+            notification.style.opacity = "0";
+            notification.style.transition = "opacity 0.5s";
+
+            setTimeout(() => {
+              document.body.removeChild(notification);
+            }, 500);
+          }, 2000);
+        }
+
+        // Nasłuchiwacze zdarzeń dla pól kalibracji
+        xPositionFactor.addEventListener("input", function () {
+          xPositionFactorValue.textContent = this.value;
+        });
+
+        yPositionFactor.addEventListener("input", function () {
+          yPositionFactorValue.textContent = this.value;
+        });
+
+        zoomFactor.addEventListener("input", function () {
+          zoomFactorValue.textContent = this.value;
+        });
+
+        // Obsługa przycisków predefiniowanych ustawień
+        presetButtons.forEach((button) => {
+          button.addEventListener("click", function () {
+            const x = parseFloat(this.getAttribute("data-x"));
+            const y = parseFloat(this.getAttribute("data-y"));
+            const zoom = parseFloat(this.getAttribute("data-zoom"));
+
+            xPositionFactor.value = x;
+            yPositionFactor.value = y;
+            zoomFactor.value = zoom;
+
+            xPositionFactorValue.textContent = x;
+            yPositionFactorValue.textContent = y;
+            zoomFactorValue.textContent = zoom;
+          });
+        });
+
+        // Otwórz panel kalibracji
+        calibrationBubble.addEventListener("click", function () {
+          calibrationPanel.classList.add("active");
+        });
+
+        // Zamknij panel kalibracji
+        calibrationClose.addEventListener("click", function () {
+          calibrationPanel.classList.remove("active");
+        });
+
+        // Zapisz ustawienia kalibracji
+        calibrationSave.addEventListener("click", saveCalibration);
+
+        // Resetuj ustawienia kalibracji
+        calibrationReset.addEventListener("click", resetToDefaultCalibration);
+
+        // Wczytaj zapisane wartości kalibracji przy ładowaniu strony
+        loadCalibration();
+
+        // Monkeypatch funkcji generowania obrazu przy ładowaniu strony
+        // Opóźniamy to trochę, aby upewnić się, że oryginalny kod jest już załadowany
+        setTimeout(monkeyPatchGenerateAndDownloadImage, 1000);
+
+        console.log("Moduł kalibracji obrazu został zainicjalizowany.");
+      });
+    </script>
   </body>
 </html>
