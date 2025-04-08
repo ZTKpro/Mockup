@@ -979,8 +979,8 @@ async function generateAndDownloadImage(
         canvas.height = size;
         const ctx = canvas.getContext("2d");
 
-        ctx.fillStyle = "white";
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        // ctx.fillStyle = "white";
+        // ctx.fillRect(0, 0, canvas.width, canvas.height);
 
         const mockupImg = new Image();
         const userImg = new Image();
