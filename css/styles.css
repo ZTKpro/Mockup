@@ -569,6 +569,37 @@ img {
   border-radius: 5px;
 }
 
+.color-picker-container {
+    display: flex;
+    align-items: center;
+    margin-top: 5px;
+  }
+
+  #background-color {
+    height: 35px;
+    width: 35px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    cursor: pointer;
+  }
+  
+  #reset-color {
+    margin-left: 10px;
+    width: 35px;
+    height: 35px;
+    padding: 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 18px;
+  }
+  
+  /* Pozwól na podgląd wybranego koloru w edytorze */
+  .editor-container {
+    background-color: #FFFFFF;
+    transition: background-color 0.3s;
+  }
+
 /* Style dla responsywności */
 @media (max-width: 992px) {
   .model-mockups {

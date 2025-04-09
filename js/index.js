@@ -1,4 +1,6 @@
 // Pobranie elementów DOM
+let currentBackgroundColor = "#FFFFFF";
+
 const uploadInput = document.getElementById("image-upload");
 const imagePreview = document.getElementById("image-preview");
 const mockupImage = document.getElementById("mockup-image");
@@ -331,20 +333,6 @@ function generateMockupsHTML(mockups) {
   });
 
   return html;
-}
-
-// Setup collapsible model groups
-function setupModelGroupListeners() {
-  const modelHeaders = document.querySelectorAll(".model-header");
-  modelHeaders.forEach((header) => {
-    header.addEventListener("click", function () {
-      const mockupsContainer = this.nextElementSibling;
-      const icon = this.querySelector(".model-collapse-icon");
-
-      mockupsContainer.classList.toggle("collapsed");
-      icon.classList.toggle("collapsed");
-    });
-  });
 }
 
 // Update the select all button to consider model filters
@@ -931,7 +919,8 @@ async function generateAndDownloadImage(
         canvas.height = size;
         const ctx = canvas.getContext("2d");
 
-        ctx.fillStyle = "white";
+        // Używamy wybranego koloru tła zamiast białego
+        ctx.fillStyle = currentBackgroundColor;
         ctx.fillRect(0, 0, canvas.width, canvas.height);
 
         const mockupImg = new Image();
@@ -977,10 +966,19 @@ async function generateAndDownloadImage(
               const canvasCenterX = canvas.width / 2;
               const canvasCenterY = canvas.height / 2;
 
-              // Separate correction factors for positioning and scaling
-              const X_POSITION_FACTOR = 1.65;
-              const Y_POSITION_FACTOR = 1.65;
-              const ZOOM_FACTOR = 0.64; // Independent zoom factor
+              // Sprawdź, czy aplikacja używa kalibracji z panelu kalibracji
+              const useCalibration = typeof calibration !== "undefined";
+
+              // Współczynniki kalibracji
+              const X_POSITION_FACTOR = useCalibration
+                ? calibration.xPositionFactor
+                : 1.65;
+              const Y_POSITION_FACTOR = useCalibration
+                ? calibration.yPositionFactor
+                : 1.65;
+              const ZOOM_FACTOR = useCalibration
+                ? calibration.zoomFactor
+                : 0.64;
 
               // Calculate scaled position values
               const scaledX = currentX * mockupScaleFactor * X_POSITION_FACTOR;
@@ -1249,9 +1247,6 @@ window.onload = async function () {
   controls.style.display = "none";
   dragInstruction.style.display = "none";
 
-  // Sprawdź czy strona wymaga autoryzacji
-  checkAuth();
-
   // Skanuj dostępne mockupy
   const availableMockups = await scanMockups();
 
@@ -1267,14 +1262,95 @@ window.onload = async function () {
       availableMockups[0].model || "Inne"
     );
   }
-};
 
-// Funkcja sprawdzająca autoryzację
-function checkAuth() {
-  const hasAccess = sessionStorage.getItem("hasAccess") === "true";
+  const backgroundColorPicker = document.getElementById("background-color");
+  const colorValue = document.getElementById("color-value");
+  const resetColorButton = document.getElementById("reset-color");
+  const editorContainer = document.getElementById("editor-container");
 
-  // Jeśli nie ma dostępu, przekieruj do strony hasła
-  if (!hasAccess) {
-    window.location.href = "password.html";
+  backgroundColorPicker.addEventListener("input", function () {
+    currentBackgroundColor = this.value;
+    colorValue.textContent = currentBackgroundColor;
+    editorContainer.style.backgroundColor = currentBackgroundColor;
+    saveCurrentMockupParameters();
+  });
+
+  resetColorButton.addEventListener("click", function () {
+    currentBackgroundColor = "#FFFFFF";
+    backgroundColorPicker.value = currentBackgroundColor;
+    colorValue.textContent = currentBackgroundColor;
+    editorContainer.style.backgroundColor = currentBackgroundColor;
+    saveCurrentMockupParameters();
+  });
+
+  // Zaktualizuj funkcję saveCurrentMockupParameters, aby zapisywała również kolor tła:
+  function saveCurrentMockupParameters() {
+    if (currentMockupId && userImageLoaded) {
+      mockupParameters[currentMockupId] = {
+        rotation: currentRotation,
+        zoom: currentZoom,
+        positionX: currentX,
+        positionY: currentY,
+        layerFront: imagePreview.style.zIndex >= 10,
+        backgroundColor: currentBackgroundColor, // Dodajemy zapis koloru tła
+      };
+
+      // Save to localStorage for persistence
+      saveParametersToLocalStorage();
+    }
   }
-}
+
+  // Zaktualizuj funkcję loadMockupParameters, aby wczytywała kolor tła:
+  function loadMockupParameters(mockupId) {
+    if (mockupId && mockupParameters[mockupId] && userImageLoaded) {
+      const params = mockupParameters[mockupId];
+
+      // Apply saved parameters
+      currentRotation = params.rotation;
+      currentZoom = params.zoom;
+      currentX = params.positionX;
+      currentY = params.positionY;
+
+      // Wczytaj zapisany kolor tła, jeśli istnieje
+      if (params.backgroundColor) {
+        currentBackgroundColor = params.backgroundColor;
+        backgroundColorPicker.value = currentBackgroundColor;
+        colorValue.textContent = currentBackgroundColor;
+        editorContainer.style.backgroundColor = currentBackgroundColor;
+      }
+
+      // Update sliders to reflect loaded values
+      rotateSlider.value = currentRotation;
+      rotateValue.textContent = currentRotation;
+
+      zoomSlider.value = currentZoom;
+      zoomValue.textContent = currentZoom;
+
+      moveXSlider.value = currentX;
+      moveYSlider.value = currentY;
+      moveXValue.textContent = currentX;
+      moveYValue.textContent = currentY;
+
+      // Set layer order
+      if (params.layerFront) {
+        imagePreview.style.zIndex = "20";
+      } else {
+        imagePreview.style.zIndex = "5";
+      }
+
+      // Apply transformations
+      updateTransform();
+    } else {
+      // If no saved parameters, reset to defaults
+      resetTransformations();
+
+      // Resetuj również kolor tła
+      currentBackgroundColor = "#FFFFFF";
+      if (backgroundColorPicker) {
+        backgroundColorPicker.value = currentBackgroundColor;
+        colorValue.textContent = currentBackgroundColor;
+        editorContainer.style.backgroundColor = currentBackgroundColor;
+      }
+    }
+  }
+};

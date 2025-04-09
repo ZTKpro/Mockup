@@ -329,6 +329,16 @@
               </div>
             </div>
 
+            <div class="control-group">
+              <label for="background-color"
+                >Kolor tła: <span id="color-value">#FFFFFF</span></label
+              >
+              <div class="color-picker-container">
+                <input type="color" id="background-color" value="#FFFFFF" />
+                <button id="reset-color" title="Resetuj do białego">↺</button>
+              </div>
+            </div>
+
             <div class="button-group">
               <button id="reset-button" class="reset">Resetuj wszystko</button>
               <button id="center-button">Wyśrodkuj</button>
@@ -427,7 +437,7 @@
             data-y="1.0"
             data-zoom="0.5"
           >
-            Małe  
+            Małe
           </button>
           <button
             class="calibration-preset-button"
@@ -443,7 +453,7 @@
             data-y="2.0"
             data-zoom="0.8"
           >
-            Duże 
+            Duże
           </button>
         </div>
       </div>
@@ -579,6 +589,8 @@
           }
 
           // Nadpisz funkcję
+          // Kod do wstawienia w sekcji monkeyPatchGenerateAndDownloadImage w index.html
+
           window.generateAndDownloadImage = async function (
             fileName = "projekt-etui.png",
             format = "png",
@@ -597,6 +609,10 @@
                   canvas.width = size;
                   canvas.height = size;
                   const ctx = canvas.getContext("2d");
+
+                  // Używamy wybranego koloru tła zamiast białego
+                  ctx.fillStyle = currentBackgroundColor;
+                  ctx.fillRect(0, 0, canvas.width, canvas.height);
 
                   const mockupImg = new Image();
                   const userImg = new Image();
