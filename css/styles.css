@@ -564,7 +564,6 @@ img {
 }
 
 .model-filters {
-  margin-bottom: 15px;
   padding: 10px;
   background-color: #f0f0f0;
   border-radius: 5px;
@@ -638,6 +637,32 @@ img {
 .model-group.some-selected .model-header {
   background-color: #3498db;
   box-shadow: 0 0 5px rgba(52, 152, 219, 0.5);
+}
+
+.model-search-input {
+  width: 92%;
+  padding: 8px 10px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 14px;
+}
+
+.model-search-input:focus {
+  border-color: #3498db;
+  outline: none;
+  box-shadow: 0 0 3px rgba(52, 152, 219, 0.5);
+}
+
+/* Keep the filter header style */
+.filter-header {
+  font-weight: bold;
+  margin-bottom: 8px;
+}
+
+/* Update model filters container */
+.model-filters {
+  border-radius: 5px;
+  background-color: #f8f9fa;
 }
 
 @media (max-width: 768px) {

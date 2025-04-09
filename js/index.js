@@ -271,84 +271,36 @@ function generateModelFilters(models, mockupsByModel) {
   const modelFilters = document.getElementById("model-filters");
   if (!modelFilters) return;
 
-  modelFilters.innerHTML = `<div class="filter-header">Filtruj według modelu:</div>`;
-
-  // Add "All" option
-  const allFilterHTML = `
-    <div class="model-filter">
-      <input type="checkbox" id="filter-all" class="model-filter-checkbox" data-model="all" checked>
-      <label for="filter-all">Wszystkie modele</label>
+  // Create search input HTML - only the search input, no list
+  const searchHTML = `
+    <div class="filter-header">Filtruj według modelu:</div>
+    <div class="model-search-container">
+      <input type="text" id="model-search" class="model-search-input" placeholder="Wyszukaj model...">
     </div>
   `;
-  modelFilters.innerHTML += allFilterHTML;
 
-  // Add each model
-  models.forEach((model) => {
-    const modelCount = mockupsByModel[model].length;
-    const filterHTML = `
-      <div class="model-filter">
-        <input type="checkbox" id="filter-${model.replace(
-          /\s+/g,
-          "-"
-        )}" class="model-filter-checkbox" data-model="${model}" checked>
-        <label for="filter-${model.replace(
-          /\s+/g,
-          "-"
-        )}">${model} (${modelCount})</label>
-      </div>
-    `;
-    modelFilters.innerHTML += filterHTML;
-  });
+  modelFilters.innerHTML = searchHTML;
 
-  // Add event listeners for filters
+  // Add event listener for search input
   setTimeout(() => {
-    const allFilter = document.getElementById("filter-all");
-    if (allFilter) {
-      allFilter.addEventListener("change", function () {
-        const isChecked = this.checked;
-        document
-          .querySelectorAll('.model-filter-checkbox:not([data-model="all"])')
-          .forEach((checkbox) => {
-            checkbox.checked = isChecked;
-            const model = checkbox.getAttribute("data-model");
-            const modelGroup = document.querySelector(
-              `.model-group[data-model="${model}"]`
-            );
-            if (modelGroup) {
-              modelGroup.style.display = isChecked ? "block" : "none";
-            }
-          });
-      });
-    }
+    const searchInput = document.getElementById("model-search");
 
-    document
-      .querySelectorAll('.model-filter-checkbox:not([data-model="all"])')
-      .forEach((checkbox) => {
-        checkbox.addEventListener("change", function () {
-          const model = this.getAttribute("data-model");
-          const visible = this.checked;
+    if (searchInput) {
+      searchInput.addEventListener("input", function () {
+        const searchTerm = this.value.toLowerCase().trim();
 
-          // Update the corresponding model group
-          const modelGroup = document.querySelector(
-            `.model-group[data-model="${model}"]`
-          );
-          if (modelGroup) {
-            modelGroup.style.display = visible ? "block" : "none";
-          }
+        // Show/hide model groups based on search term
+        document.querySelectorAll(".model-group").forEach((group) => {
+          const modelName = group.getAttribute("data-model").toLowerCase();
 
-          // Update "All" checkbox
-          const allModelsVisible = Array.from(
-            document.querySelectorAll(
-              '.model-filter-checkbox:not([data-model="all"])'
-            )
-          ).every((cb) => cb.checked);
-
-          const allFilter = document.getElementById("filter-all");
-          if (allFilter) {
-            allFilter.checked = allModelsVisible;
+          if (searchTerm === "" || modelName.includes(searchTerm)) {
+            group.style.display = "block";
+          } else {
+            group.style.display = "none";
           }
         });
       });
+    }
   }, 100);
 }
 
