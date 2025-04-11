@@ -24,15 +24,15 @@ const Calibration = (function () {
 
   // Default calibration values
   const defaultCalibration = {
-    xPositionFactor: 1.65,
-    yPositionFactor: 1.65,
+    xPositionFactor: 1,
+    yPositionFactor: 1,
     zoomFactor: 0.64,
   };
 
   // Current calibration values
   let calibration = {
-    xPositionFactor: 1.65,
-    yPositionFactor: 1.65,
+    xPositionFactor: 1,
+    yPositionFactor: 1,
     zoomFactor: 0.64,
   };
 

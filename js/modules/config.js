@@ -36,8 +36,8 @@ const EditorConfig = {
 
   // Współczynniki kalibracji
   calibration: {
-    defaultXPositionFactor: 1.65,
-    defaultYPositionFactor: 1.65,
+    defaultXPositionFactor: 1,
+    defaultYPositionFactor: 1,
     defaultZoomFactor: 0.64,
   },
 };
