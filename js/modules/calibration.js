@@ -1,14 +1,14 @@
 /**
- * calibration.js - Moduł obsługujący kalibrację generowania obrazów
+ * calibration.js - Module for handling image generation calibration
  */
 
 const Calibration = (function () {
-  // Logowanie debugowania, jeśli moduł Debug jest dostępny
+  // Debug logging if available
   if (window.Debug) {
-    Debug.info("CALIBRATION", "Inicjalizacja modułu kalibracji");
+    Debug.info("CALIBRATION", "Initializing calibration module");
   }
 
-  // Referencje do elementów DOM
+  // DOM element references
   let calibrationBubble;
   let calibrationPanel;
   let calibrationClose;
@@ -22,14 +22,14 @@ const Calibration = (function () {
   let zoomFactorValue;
   let presetButtons;
 
-  // Domyślne wartości kalibracji
+  // Default calibration values
   const defaultCalibration = {
     xPositionFactor: 1.65,
     yPositionFactor: 1.65,
     zoomFactor: 0.64,
   };
 
-  // Wartości kalibracji
+  // Current calibration values
   let calibration = {
     xPositionFactor: 1.65,
     yPositionFactor: 1.65,
@@ -37,45 +37,41 @@ const Calibration = (function () {
   };
 
   /**
-   * Inicjalizuje moduł i przypisuje referencje do elementów DOM
+   * Initialize the module and assign DOM element references
    */
   function init() {
     if (window.Debug) {
-      Debug.info("CALIBRATION", "Inicjalizacja elementów DOM kalibracji");
+      Debug.info("CALIBRATION", "Initializing DOM elements for calibration");
     }
 
-    // Elementy DOM dla kalibracji
+    // Get DOM elements for calibration
     calibrationBubble = document.getElementById("calibration-bubble");
     calibrationPanel = document.getElementById("calibration-panel");
     calibrationClose = document.getElementById("calibration-close");
     calibrationSave = document.getElementById("calibration-save");
     calibrationReset = document.getElementById("calibration-reset");
 
-    // Elementy pól kalibracji
+    // Get calibration field elements
     xPositionFactor = document.getElementById("x-position-factor");
     yPositionFactor = document.getElementById("y-position-factor");
     zoomFactor = document.getElementById("zoom-factor");
 
-    // Wartości do wyświetlania
+    // Get display value elements
     xPositionFactorValue = document.getElementById("x-position-factor-value");
     yPositionFactorValue = document.getElementById("y-position-factor-value");
     zoomFactorValue = document.getElementById("zoom-factor-value");
 
-    // Predefiniowane ustawienia
+    // Get preset buttons
     presetButtons = document.querySelectorAll(".calibration-preset-button");
 
     if (!calibrationBubble || !calibrationPanel) {
       if (window.Debug) {
-        Debug.error(
-          "CALIBRATION",
-          "Nie znaleziono elementów panelu kalibracji",
-          {
-            calibrationBubble: !!calibrationBubble,
-            calibrationPanel: !!calibrationPanel,
-          }
-        );
+        Debug.error("CALIBRATION", "Calibration panel elements not found", {
+          calibrationBubble: !!calibrationBubble,
+          calibrationPanel: !!calibrationPanel,
+        });
       }
-      console.error("Nie znaleziono elementów panelu kalibracji");
+      console.error("Calibration panel elements not found");
       return;
     }
 
@@ -84,103 +80,118 @@ const Calibration = (function () {
     monkeyPatchGenerateAndDownloadImage();
 
     if (window.Debug) {
-      Debug.info("CALIBRATION", "Moduł kalibracji został zainicjalizowany");
+      Debug.info("CALIBRATION", "Calibration module initialized successfully");
     }
   }
 
   /**
-   * Konfiguruje nasłuchiwacze zdarzeń
+   * Set up event listeners
    */
   function setupEventListeners() {
     if (window.Debug) {
-      Debug.debug(
-        "CALIBRATION",
-        "Konfiguracja nasłuchiwaczy zdarzeń kalibracji"
-      );
+      Debug.debug("CALIBRATION", "Setting up calibration event listeners");
     }
 
-    // Otwórz panel kalibracji
-    calibrationBubble.addEventListener("click", function () {
-      if (window.Debug) {
-        Debug.debug("CALIBRATION", "Otwieranie panelu kalibracji");
-      }
-      calibrationPanel.classList.add("active");
-    });
-
-    // Zamknij panel kalibracji
-    calibrationClose.addEventListener("click", function () {
-      if (window.Debug) {
-        Debug.debug("CALIBRATION", "Zamykanie panelu kalibracji");
-      }
-      calibrationPanel.classList.remove("active");
-    });
-
-    // Zapisz ustawienia kalibracji
-    calibrationSave.addEventListener("click", saveCalibration);
-
-    // Resetuj ustawienia kalibracji
-    calibrationReset.addEventListener("click", resetToDefaultCalibration);
-
-    // Nasłuchiwacze zdarzeń dla pól kalibracji
-    xPositionFactor.addEventListener("input", function () {
-      if (window.Debug) {
-        Debug.debug(
-          "CALIBRATION",
-          `Zmiana współczynnika pozycji X: ${this.value}`
-        );
-      }
-      xPositionFactorValue.textContent = this.value;
-    });
-
-    yPositionFactor.addEventListener("input", function () {
-      if (window.Debug) {
-        Debug.debug(
-          "CALIBRATION",
-          `Zmiana współczynnika pozycji Y: ${this.value}`
-        );
-      }
-      yPositionFactorValue.textContent = this.value;
-    });
-
-    zoomFactor.addEventListener("input", function () {
-      if (window.Debug) {
-        Debug.debug("CALIBRATION", `Zmiana współczynnika zoom: ${this.value}`);
-      }
-      zoomFactorValue.textContent = this.value;
-    });
-
-    // Obsługa przycisków predefiniowanych ustawień
-    presetButtons.forEach((button) => {
-      button.addEventListener("click", function () {
-        const x = parseFloat(this.getAttribute("data-x"));
-        const y = parseFloat(this.getAttribute("data-y"));
-        const zoom = parseFloat(this.getAttribute("data-zoom"));
-
+    // Open calibration panel
+    if (calibrationBubble) {
+      calibrationBubble.addEventListener("click", function () {
         if (window.Debug) {
-          Debug.debug("CALIBRATION", "Wybrano predefiniowane ustawienia", {
-            x,
-            y,
-            zoom,
-          });
+          Debug.debug("CALIBRATION", "Opening calibration panel");
         }
-
-        xPositionFactor.value = x;
-        yPositionFactor.value = y;
-        zoomFactor.value = zoom;
-
-        xPositionFactorValue.textContent = x;
-        yPositionFactorValue.textContent = y;
-        zoomFactorValue.textContent = zoom;
+        calibrationPanel.classList.add("active");
       });
-    });
+    }
+
+    // Close calibration panel
+    if (calibrationClose) {
+      calibrationClose.addEventListener("click", function () {
+        if (window.Debug) {
+          Debug.debug("CALIBRATION", "Closing calibration panel");
+        }
+        calibrationPanel.classList.remove("active");
+      });
+    }
+
+    // Save calibration settings
+    if (calibrationSave) {
+      calibrationSave.addEventListener("click", saveCalibration);
+    }
+
+    // Reset calibration settings
+    if (calibrationReset) {
+      calibrationReset.addEventListener("click", resetToDefaultCalibration);
+    }
+
+    // X position factor input
+    if (xPositionFactor) {
+      xPositionFactor.addEventListener("input", function () {
+        if (window.Debug) {
+          Debug.debug(
+            "CALIBRATION",
+            `X position factor changed: ${this.value}`
+          );
+        }
+        xPositionFactorValue.textContent = this.value;
+      });
+    }
+
+    // Y position factor input
+    if (yPositionFactor) {
+      yPositionFactor.addEventListener("input", function () {
+        if (window.Debug) {
+          Debug.debug(
+            "CALIBRATION",
+            `Y position factor changed: ${this.value}`
+          );
+        }
+        yPositionFactorValue.textContent = this.value;
+      });
+    }
+
+    // Zoom factor input
+    if (zoomFactor) {
+      zoomFactor.addEventListener("input", function () {
+        if (window.Debug) {
+          Debug.debug("CALIBRATION", `Zoom factor changed: ${this.value}`);
+        }
+        zoomFactorValue.textContent = this.value;
+      });
+    }
+
+    // Preset buttons
+    if (presetButtons) {
+      presetButtons.forEach((button) => {
+        button.addEventListener("click", function () {
+          const x = parseFloat(this.getAttribute("data-x"));
+          const y = parseFloat(this.getAttribute("data-y"));
+          const zoom = parseFloat(this.getAttribute("data-zoom"));
+
+          if (window.Debug) {
+            Debug.debug("CALIBRATION", "Preset selected", {
+              x,
+              y,
+              zoom,
+            });
+          }
+
+          xPositionFactor.value = x;
+          yPositionFactor.value = y;
+          zoomFactor.value = zoom;
+
+          xPositionFactorValue.textContent = x;
+          yPositionFactorValue.textContent = y;
+          zoomFactorValue.textContent = zoom;
+        });
+      });
+    }
   }
 
   /**
-   * Wczytuje zapisane wartości kalibracji z localStorage
+   * Load calibration values from localStorage
    */
   function loadCalibration() {
     if (window.Debug) {
-      Debug.debug("CALIBRATION", "Wczytywanie kalibracji z localStorage");
+      Debug.debug("CALIBRATION", "Loading calibration from localStorage");
     }
 
     const savedCalibration = localStorage.getItem("imageCalibration");
@@ -188,110 +199,126 @@ const Calibration = (function () {
       try {
         calibration = JSON.parse(savedCalibration);
 
-        // Aktualizuj pola formularza
-        xPositionFactor.value = calibration.xPositionFactor;
-        yPositionFactor.value = calibration.yPositionFactor;
-        zoomFactor.value = calibration.zoomFactor;
+        // Update form fields
+        if (xPositionFactor && yPositionFactor && zoomFactor) {
+          xPositionFactor.value = calibration.xPositionFactor;
+          yPositionFactor.value = calibration.yPositionFactor;
+          zoomFactor.value = calibration.zoomFactor;
+        }
 
-        // Aktualizuj wyświetlane wartości
-        xPositionFactorValue.textContent = calibration.xPositionFactor;
-        yPositionFactorValue.textContent = calibration.yPositionFactor;
-        zoomFactorValue.textContent = calibration.zoomFactor;
+        // Update displayed values
+        if (xPositionFactorValue && yPositionFactorValue && zoomFactorValue) {
+          xPositionFactorValue.textContent = calibration.xPositionFactor;
+          yPositionFactorValue.textContent = calibration.yPositionFactor;
+          zoomFactorValue.textContent = calibration.zoomFactor;
+        }
 
         if (window.Debug) {
           Debug.debug(
             "CALIBRATION",
-            "Wczytano zapisane wartości kalibracji",
+            "Loaded saved calibration values",
             calibration
           );
         }
 
-        // Udostępnij kalibrację globalnie
+        // Make calibration globally available
         window.calibration = calibration;
 
-        console.log("Wczytano zapisane wartości kalibracji:", calibration);
+        console.log("Loaded saved calibration values:", calibration);
       } catch (e) {
         if (window.Debug) {
-          Debug.error("CALIBRATION", "Błąd wczytywania kalibracji", e);
+          Debug.error("CALIBRATION", "Error loading calibration", e);
         }
-        console.error("Błąd wczytywania kalibracji:", e);
+        console.error("Error loading calibration:", e);
         resetToDefaultCalibration();
       }
     } else {
       if (window.Debug) {
         Debug.debug(
           "CALIBRATION",
-          "Nie znaleziono zapisanych wartości kalibracji, używanie domyślnych"
+          "No saved calibration found, using defaults"
         );
       }
 
-      // Ustaw wartości domyślne
+      // Set default values
       calibration = { ...defaultCalibration };
 
-      // Udostępnij kalibrację globalnie
+      // Make calibration globally available
       window.calibration = calibration;
     }
   }
 
   /**
-   * Zapisuje wartości kalibracji
+   * Save calibration values
    */
   function saveCalibration() {
-    // Pobierz wartości z pól formularza
+    if (!xPositionFactor || !yPositionFactor || !zoomFactor) {
+      console.error("Calibration form elements not found");
+      return;
+    }
+
+    // Get values from form fields
     calibration.xPositionFactor = parseFloat(xPositionFactor.value);
     calibration.yPositionFactor = parseFloat(yPositionFactor.value);
     calibration.zoomFactor = parseFloat(zoomFactor.value);
 
     if (window.Debug) {
-      Debug.info("CALIBRATION", "Zapisywanie wartości kalibracji", calibration);
+      Debug.info("CALIBRATION", "Saving calibration values", calibration);
     }
 
-    // Zapisz w localStorage
+    // Save to localStorage
     localStorage.setItem("imageCalibration", JSON.stringify(calibration));
 
-    // Udostępnij kalibrację globalnie
+    // Make calibration globally available
     window.calibration = calibration;
 
-    console.log("Zapisano wartości kalibracji:", calibration);
+    console.log("Saved calibration values:", calibration);
 
-    // Monkeypatch funkcji generowania obrazu
+    // Monkey patch image generation function
     monkeyPatchGenerateAndDownloadImage();
 
-    // Pokaż powiadomienie
-    showNotification("Zapisano ustawienia kalibracji");
+    // Show notification
+    showNotification("Calibration settings saved");
 
-    // Zamknij panel
+    // Close panel
     calibrationPanel.classList.remove("active");
   }
 
   /**
-   * Resetuje do domyślnych wartości
+   * Reset to default values
    */
   function resetToDefaultCalibration() {
     if (window.Debug) {
       Debug.info(
         "CALIBRATION",
-        "Resetowanie do domyślnych wartości kalibracji",
+        "Resetting to default calibration values",
         defaultCalibration
       );
     }
 
-    // Przypisz domyślne wartości
+    if (!xPositionFactor || !yPositionFactor || !zoomFactor) {
+      console.error("Calibration form elements not found");
+      return;
+    }
+
+    // Assign default values
     xPositionFactor.value = defaultCalibration.xPositionFactor;
     yPositionFactor.value = defaultCalibration.yPositionFactor;
     zoomFactor.value = defaultCalibration.zoomFactor;
 
-    // Aktualizuj wyświetlane wartości
-    xPositionFactorValue.textContent = defaultCalibration.xPositionFactor;
-    yPositionFactorValue.textContent = defaultCalibration.yPositionFactor;
-    zoomFactorValue.textContent = defaultCalibration.zoomFactor;
+    // Update displayed values
+    if (xPositionFactorValue && yPositionFactorValue && zoomFactorValue) {
+      xPositionFactorValue.textContent = defaultCalibration.xPositionFactor;
+      yPositionFactorValue.textContent = defaultCalibration.yPositionFactor;
+      zoomFactorValue.textContent = defaultCalibration.zoomFactor;
+    }
   }
 
   /**
-   * Monkeypatch funkcji generowania obrazu
+   * Monkey patch the image generation function
    */
   function monkeyPatchGenerateAndDownloadImage() {
-    // Sprawdź, czy funkcja istnieje
+    // Check if the function exists
     if (
       typeof window.generateAndDownloadImage !== "function" &&
       typeof window.Export?.generateAndDownloadImage !== "function"
@@ -299,21 +326,21 @@ const Calibration = (function () {
       if (window.Debug) {
         Debug.error(
           "CALIBRATION",
-          "Funkcja generateAndDownloadImage nie istnieje!"
+          "generateAndDownloadImage function not found!"
         );
       }
-      console.error("Funkcja generateAndDownloadImage nie istnieje!");
+      console.error("generateAndDownloadImage function not found!");
       return;
     }
 
     if (window.Debug) {
       Debug.debug(
         "CALIBRATION",
-        "Rozpoczęcie monkeypatchu funkcji generateAndDownloadImage"
+        "Starting monkey patch of generateAndDownloadImage function"
       );
     }
 
-    // Zachowaj oryginalną funkcję
+    // Save original function
     if (!window.originalGenerateAndDownloadImage) {
       window.originalGenerateAndDownloadImage =
         window.generateAndDownloadImage ||
@@ -321,17 +348,17 @@ const Calibration = (function () {
       if (window.Debug) {
         Debug.debug(
           "CALIBRATION",
-          "Zapisano oryginalną funkcję generateAndDownloadImage"
+          "Saved original generateAndDownloadImage function"
         );
       }
     }
 
-    // Pobierz oryginalną funkcję (albo z globalnego window, albo z modułu Export)
+    // Get original function (either from global window or Export module)
     const originalFn =
       window.originalGenerateAndDownloadImage ||
       window.Export.generateAndDownloadImage;
 
-    // Nadpisz funkcję - używamy funkcji w module Export, jeśli jest dostępna
+    // Override function - use function in Export module if available
     if (
       window.Export &&
       typeof window.Export.generateAndDownloadImage === "function"
@@ -341,7 +368,7 @@ const Calibration = (function () {
         format,
         size
       ) {
-        // Upewnij się, że kalibracja jest dostępna globalnie
+        // Ensure calibration is globally available
         if (!window.calibration) {
           window.calibration = calibration;
         }
@@ -351,7 +378,7 @@ const Calibration = (function () {
       if (window.Debug) {
         Debug.info(
           "CALIBRATION",
-          "Nadpisano funkcję Export.generateAndDownloadImage"
+          "Overrode Export.generateAndDownloadImage function"
         );
       }
     } else {
@@ -360,7 +387,7 @@ const Calibration = (function () {
         format,
         size
       ) {
-        // Upewnij się, że kalibracja jest dostępna globalnie
+        // Ensure calibration is globally available
         if (!window.calibration) {
           window.calibration = calibration;
         }
@@ -368,22 +395,22 @@ const Calibration = (function () {
       };
 
       if (window.Debug) {
-        Debug.info("CALIBRATION", "Nadpisano funkcję generateAndDownloadImage");
+        Debug.info("CALIBRATION", "Overrode generateAndDownloadImage function");
       }
     }
 
     console.log(
-      "Nadpisano funkcję generateAndDownloadImage z nowymi współczynnikami kalibracji."
+      "Overrode generateAndDownloadImage function with new calibration factors."
     );
   }
 
   /**
-   * Funkcja wyświetlająca powiadomienie
-   * @param {string} message - Wiadomość do wyświetlenia
+   * Show a notification
+   * @param {string} message - Message to display
    */
   function showNotification(message) {
     if (window.Debug) {
-      Debug.debug("CALIBRATION", `Wyświetlanie powiadomienia: ${message}`);
+      Debug.debug("CALIBRATION", `Showing notification: ${message}`);
     }
 
     const notification = document.createElement("div");
@@ -410,7 +437,25 @@ const Calibration = (function () {
     }, 2000);
   }
 
-  // Zwróć publiczny interfejs modułu
+  // Register initialization with the Loader if available
+  if (window.Loader) {
+    window.Loader.registerInitFunction(init);
+  } else {
+    // Fallback for when Loader is not available
+    document.addEventListener("DOMContentLoaded", function () {
+      // Check if Loader is available after a short delay
+      setTimeout(function () {
+        if (window.Loader) {
+          window.Loader.registerInitFunction(init);
+        } else {
+          // Direct initialization if Loader is still not available
+          init();
+        }
+      }, 500);
+    });
+  }
+
+  // Public interface
   return {
     init,
     loadCalibration,
@@ -422,13 +467,5 @@ const Calibration = (function () {
   };
 })();
 
-// Czekaj na załadowanie DOM przed inicjalizacją
-document.addEventListener("DOMContentLoaded", function () {
-  // Inicjalizacja modułu po załadowaniu DOM
-  setTimeout(function () {
-    Calibration.init();
-  }, 500); // Dodajemy małe opóźnienie, aby upewnić się, że inne moduły zostały załadowane
-});
-
-// Eksportuj moduł jako obiekt globalny
+// Export as global object
 window.Calibration = Calibration;

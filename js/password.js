@@ -1,85 +1,114 @@
-document.addEventListener("DOMContentLoaded", function () {
-  // Logowanie debugowania, jeśli moduł Debug jest dostępny
+/**
+ * password.js - Script for login page authentication
+ */
+
+// Register initialization function with Loader if available
+if (window.Loader) {
+  window.Loader.registerInitFunction(initPasswordModule);
+} else {
+  // Fallback when Loader is not available
+  document.addEventListener("DOMContentLoaded", function () {
+    // Check if Loader is available after a short delay
+    setTimeout(function () {
+      if (window.Loader) {
+        window.Loader.registerInitFunction(initPasswordModule);
+      } else {
+        // Direct initialization
+        initPasswordModule();
+      }
+    }, 100);
+  });
+}
+
+/**
+ * Initialize password module
+ */
+function initPasswordModule() {
+  // Debug logging if available
   if (window.Debug) {
-    Debug.info("PASSWORD", "Inicjalizacja modułu logowania");
+    Debug.info("PASSWORD", "Initializing login module");
   }
 
-  // Elementy DOM
+  // DOM elements
   const passwordForm = document.getElementById("password-form");
   const passwordInput = document.getElementById("password");
   const errorMessage = document.getElementById("error-message");
   const formContainer = document.getElementById("password-form-container");
 
-  // Hasło dostępu (możesz zmienić na własne)
-  const correctPassword = "halo@jpe.pl";
-
-  // Sprawdź, czy użytkownik ma już ważny dostęp
-  function checkAccess() {
-    const hasAccess = sessionStorage.getItem("hasAccess") === "true";
-
-    if (window.Debug) {
-      Debug.debug(
-        "PASSWORD",
-        `Sprawdzanie dostępu: ${hasAccess ? "Autoryzowany" : "Nieautoryzowany"}`
-      );
-    }
-
-    if (hasAccess) {
-      // Przekieruj do aplikacji
-      if (window.Debug) {
-        Debug.debug(
-          "PASSWORD",
-          "Użytkownik ma dostęp, przekierowanie do index.html"
-        );
-      }
-      window.location.href = "index.html";
-    }
+  if (!passwordForm || !passwordInput || !errorMessage || !formContainer) {
+    console.error("Required password form elements not found");
+    return;
   }
 
-  // Sprawdź status dostępu przy ładowaniu strony
+  // Access password (you can change this to your own)
+  const correctPassword = "halo@jpe.pl";
+
+  // Check if user already has valid access
   checkAccess();
 
-  // Obsługa formularza hasła
+  // Password form submission handler
   passwordForm.addEventListener("submit", function (e) {
     e.preventDefault();
 
     const password = passwordInput.value;
 
     if (window.Debug) {
-      Debug.debug("PASSWORD", "Próba logowania");
+      Debug.debug("PASSWORD", "Login attempt");
     }
 
-    // Ukryj poprzedni komunikat o błędzie
+    // Hide previous error message
     errorMessage.style.display = "none";
 
-    // Sprawdź hasło
+    // Check password
     if (password === correctPassword) {
-      // Ustaw flagę dostępu
+      // Set access flag
       sessionStorage.setItem("hasAccess", "true");
 
       if (window.Debug) {
-        Debug.info("PASSWORD", "Poprawne hasło, ustawiono flagę dostępu");
+        Debug.info("PASSWORD", "Correct password, access granted");
       }
 
-      // Przekieruj do aplikacji
+      // Redirect to application
       window.location.href = "index.html";
     } else {
-      // Pokaż komunikat o błędzie
+      // Show error message
       errorMessage.style.display = "block";
 
       if (window.Debug) {
-        Debug.warn("PASSWORD", "Nieprawidłowe hasło");
+        Debug.warn("PASSWORD", "Incorrect password");
       }
 
-      // Dodaj efekt potrząsania formularzem
+      // Add form shake effect
       formContainer.classList.add("shake");
       setTimeout(() => {
         formContainer.classList.remove("shake");
       }, 500);
 
-      // Wyczyść pole hasła
+      // Clear password field
       passwordInput.value = "";
       passwordInput.focus();
     }
   });
-});
+
+  /**
+   * Check if user has access
+   */
+  function checkAccess() {
+    const hasAccess = sessionStorage.getItem("hasAccess") === "true";
+
+    if (window.Debug) {
+      Debug.debug(
+        "PASSWORD",
+        `Checking access: ${hasAccess ? "Authorized" : "Unauthorized"}`
+      );
+    }
+
+    if (hasAccess) {
+      // Redirect to application
+      if (window.Debug) {
+        Debug.debug("PASSWORD", "User has access, redirecting to index.html");
+      }
+      window.location.href = "index.html";
+    }
+  }
+}
