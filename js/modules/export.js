@@ -12,6 +12,9 @@ const Export = (function () {
   // Stały współczynnik powiększenia dla wszystkich urządzeń
   // Ta wartość jest używana jako mnożnik dla procentowej wartości powiększenia
   const ABSOLUTE_ZOOM_FACTOR = 0.015; // 1% powiększenia = 0.01 współczynnika skali
+  
+  // Referencyjny rozmiar obrazu, dla którego ABSOLUTE_ZOOM_FACTOR działa poprawnie
+  const REFERENCE_SIZE = 1200;
 
   /**
    * Pokazuje dialog z opcjami pobierania
@@ -228,9 +231,6 @@ const Export = (function () {
                 const canvasCenterX = canvas.width / 2;
                 const canvasCenterY = canvas.height / 2;
 
-                // KLUCZOWA ZMIANA: Stosujemy liniowy, stały współczynnik powiększenia
-                // Niezależnie od urządzenia, wartość powiększenia 30% zawsze da ten sam rozmiar
-
                 // Najpierw obliczamy pozycję z uwzględnieniem skalowania mockupu
                 const scaledX = Math.round(
                   transformState.currentX * mockupScaleFactor
@@ -242,10 +242,13 @@ const Export = (function () {
                 const userImageX = canvasCenterX + scaledX;
                 const userImageY = canvasCenterY + scaledY;
 
+                // WAŻNA MODYFIKACJA: Dostosowanie współczynnika powiększenia do rozmiaru wyjściowego
+                // Obliczamy współczynnik skalowania względem referencyjnego rozmiaru
+                const sizeScalingRatio = size / REFERENCE_SIZE;
+                
                 // Wartość powiększenia jest teraz bezpośrednio powiązana z procentem
-                // Przykład: 30% powiększenia = 0.3 współczynnika skali
-                const absoluteZoom =
-                  transformState.currentZoom * ABSOLUTE_ZOOM_FACTOR;
+                // oraz z rozmiarem wyjściowym
+                const absoluteZoom = transformState.currentZoom * ABSOLUTE_ZOOM_FACTOR * sizeScalingRatio;
 
                 if (window.Debug) {
                   Debug.debug(
@@ -258,6 +261,9 @@ const Export = (function () {
                       userImageY,
                       rotation: transformState.currentRotation,
                       currentZoomPercent: transformState.currentZoom,
+                      referenceSize: REFERENCE_SIZE,
+                      outputSize: size,
+                      sizeScalingRatio: sizeScalingRatio,
                       absoluteZoom: absoluteZoom,
                     }
                   );
@@ -267,7 +273,7 @@ const Export = (function () {
                 ctx.translate(userImageX, userImageY);
                 ctx.rotate((transformState.currentRotation * Math.PI) / 180);
 
-                // Używamy bezpośredniego, liniowego współczynnika powiększenia
+                // Używamy zmodyfikowanego współczynnika powiększenia
                 ctx.scale(absoluteZoom, absoluteZoom);
 
                 const userImgWidth = userImg.naturalWidth;
