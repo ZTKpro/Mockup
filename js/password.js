@@ -1,4 +1,9 @@
 document.addEventListener("DOMContentLoaded", function () {
+  // Logowanie debugowania, jeśli moduł Debug jest dostępny
+  if (window.Debug) {
+    Debug.info("PASSWORD", "Inicjalizacja modułu logowania");
+  }
+
   // Elementy DOM
   const passwordForm = document.getElementById("password-form");
   const passwordInput = document.getElementById("password");
@@ -11,8 +16,22 @@ document.addEventListener("DOMContentLoaded", function () {
   // Sprawdź, czy użytkownik ma już ważny dostęp
   function checkAccess() {
     const hasAccess = sessionStorage.getItem("hasAccess") === "true";
+
+    if (window.Debug) {
+      Debug.debug(
+        "PASSWORD",
+        `Sprawdzanie dostępu: ${hasAccess ? "Autoryzowany" : "Nieautoryzowany"}`
+      );
+    }
+
     if (hasAccess) {
       // Przekieruj do aplikacji
+      if (window.Debug) {
+        Debug.debug(
+          "PASSWORD",
+          "Użytkownik ma dostęp, przekierowanie do index.html"
+        );
+      }
       window.location.href = "index.html";
     }
   }
@@ -26,6 +45,10 @@ document.addEventListener("DOMContentLoaded", function () {
 
     const password = passwordInput.value;
 
+    if (window.Debug) {
+      Debug.debug("PASSWORD", "Próba logowania");
+    }
+
     // Ukryj poprzedni komunikat o błędzie
     errorMessage.style.display = "none";
 
@@ -34,11 +57,19 @@ document.addEventListener("DOMContentLoaded", function () {
       // Ustaw flagę dostępu
       sessionStorage.setItem("hasAccess", "true");
 
+      if (window.Debug) {
+        Debug.info("PASSWORD", "Poprawne hasło, ustawiono flagę dostępu");
+      }
+
       // Przekieruj do aplikacji
       window.location.href = "index.html";
     } else {
       // Pokaż komunikat o błędzie
       errorMessage.style.display = "block";
+
+      if (window.Debug) {
+        Debug.warn("PASSWORD", "Nieprawidłowe hasło");
+      }
 
       // Dodaj efekt potrząsania formularzem
       formContainer.classList.add("shake");

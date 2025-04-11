@@ -1,4 +1,9 @@
 document.addEventListener("DOMContentLoaded", function () {
+  // Logowanie debugowania, jeśli moduł Debug jest dostępny
+  if (window.Debug) {
+    Debug.info("CALIBRATION", "Inicjalizacja modułu kalibracji");
+  }
+
   // Elementy DOM dla kalibracji
   const calibrationBubble = document.getElementById("calibration-bubble");
   const calibrationPanel = document.getElementById("calibration-panel");
@@ -39,6 +44,10 @@ document.addEventListener("DOMContentLoaded", function () {
 
   // Wczytaj zapisane wartości kalibracji z localStorage
   function loadCalibration() {
+    if (window.Debug) {
+      Debug.debug("CALIBRATION", "Wczytywanie kalibracji z localStorage");
+    }
+
     const savedCalibration = localStorage.getItem("imageCalibration");
     if (savedCalibration) {
       try {
@@ -54,10 +63,27 @@ document.addEventListener("DOMContentLoaded", function () {
         yPositionFactorValue.textContent = calibration.yPositionFactor;
         zoomFactorValue.textContent = calibration.zoomFactor;
 
+        if (window.Debug) {
+          Debug.debug(
+            "CALIBRATION",
+            "Wczytano zapisane wartości kalibracji",
+            calibration
+          );
+        }
         console.log("Wczytano zapisane wartości kalibracji:", calibration);
       } catch (e) {
+        if (window.Debug) {
+          Debug.error("CALIBRATION", "Błąd wczytywania kalibracji", e);
+        }
         console.error("Błąd wczytywania kalibracji:", e);
         resetToDefaultCalibration();
+      }
+    } else {
+      if (window.Debug) {
+        Debug.debug(
+          "CALIBRATION",
+          "Nie znaleziono zapisanych wartości kalibracji, używanie domyślnych"
+        );
       }
     }
   }
@@ -68,6 +94,10 @@ document.addEventListener("DOMContentLoaded", function () {
     calibration.xPositionFactor = parseFloat(xPositionFactor.value);
     calibration.yPositionFactor = parseFloat(yPositionFactor.value);
     calibration.zoomFactor = parseFloat(zoomFactor.value);
+
+    if (window.Debug) {
+      Debug.info("CALIBRATION", "Zapisywanie wartości kalibracji", calibration);
+    }
 
     // Zapisz w localStorage
     localStorage.setItem("imageCalibration", JSON.stringify(calibration));
@@ -85,6 +115,14 @@ document.addEventListener("DOMContentLoaded", function () {
 
   // Resetuj do domyślnych wartości
   function resetToDefaultCalibration() {
+    if (window.Debug) {
+      Debug.info(
+        "CALIBRATION",
+        "Resetowanie do domyślnych wartości kalibracji",
+        defaultCalibration
+      );
+    }
+
     // Przypisz domyślne wartości
     xPositionFactor.value = defaultCalibration.xPositionFactor;
     yPositionFactor.value = defaultCalibration.yPositionFactor;
@@ -100,13 +138,32 @@ document.addEventListener("DOMContentLoaded", function () {
   function monkeyPatchGenerateAndDownloadImage() {
     // Sprawdź, czy funkcja istnieje
     if (typeof window.generateAndDownloadImage !== "function") {
+      if (window.Debug) {
+        Debug.error(
+          "CALIBRATION",
+          "Funkcja generateAndDownloadImage nie istnieje!"
+        );
+      }
       console.error("Funkcja generateAndDownloadImage nie istnieje!");
       return;
+    }
+
+    if (window.Debug) {
+      Debug.debug(
+        "CALIBRATION",
+        "Rozpoczęcie monkeypatchu funkcji generateAndDownloadImage"
+      );
     }
 
     // Zachowaj oryginalną funkcję
     if (!window.originalGenerateAndDownloadImage) {
       window.originalGenerateAndDownloadImage = window.generateAndDownloadImage;
+      if (window.Debug) {
+        Debug.debug(
+          "CALIBRATION",
+          "Zapisano oryginalną funkcję generateAndDownloadImage"
+        );
+      }
     }
 
     // Nadpisz funkcję
@@ -117,6 +174,18 @@ document.addEventListener("DOMContentLoaded", function () {
       format = "png",
       size = 1200
     ) {
+      if (window.Debug) {
+        Debug.debug(
+          "CALIBRATION",
+          "Wywołanie funkcji generateAndDownloadImage",
+          {
+            fileName,
+            format,
+            size,
+          }
+        );
+      }
+
       const progressMsg = document.createElement("div");
       progressMsg.className = "progress-message";
       progressMsg.textContent = "Trwa generowanie obrazu, proszę czekać...";
@@ -142,6 +211,13 @@ document.addEventListener("DOMContentLoaded", function () {
 
             function handleImageError(message) {
               hasError = true;
+              if (window.Debug) {
+                Debug.error(
+                  "CALIBRATION",
+                  "Błąd podczas ładowania obrazu",
+                  message
+                );
+              }
               console.error(message);
               document.body.removeChild(progressMsg);
               alert("Błąd: " + message);
@@ -152,6 +228,10 @@ document.addEventListener("DOMContentLoaded", function () {
               if (hasError) return resolve(false);
 
               try {
+                if (window.Debug) {
+                  Debug.debug("CALIBRATION", "Rysowanie i pobieranie obrazu");
+                }
+
                 const mockupScaleFactor = Math.min(
                   size / mockupImg.naturalWidth,
                   size / mockupImg.naturalHeight
@@ -187,6 +267,14 @@ document.addEventListener("DOMContentLoaded", function () {
                 }
 
                 function drawUserImage() {
+                  if (window.Debug) {
+                    Debug.debug(
+                      "CALIBRATION",
+                      "Rysowanie obrazu użytkownika z kalibracją",
+                      calibration
+                    );
+                  }
+
                   const canvasCenterX = canvas.width / 2;
                   const canvasCenterY = canvas.height / 2;
 
@@ -239,6 +327,9 @@ document.addEventListener("DOMContentLoaded", function () {
                   downloadUsingDataURL(dataURL);
                 }
               } catch (e) {
+                if (window.Debug) {
+                  Debug.error("CALIBRATION", "Błąd przy rysowaniu", e);
+                }
                 console.error("Błąd przy rysowaniu:", e);
                 document.body.removeChild(progressMsg);
                 alert(
@@ -250,6 +341,13 @@ document.addEventListener("DOMContentLoaded", function () {
 
             function downloadUsingBlob(blob) {
               try {
+                if (window.Debug) {
+                  Debug.debug(
+                    "CALIBRATION",
+                    "Pobieranie obrazu za pomocą Blob"
+                  );
+                }
+
                 const url = URL.createObjectURL(blob);
                 const a = document.createElement("a");
                 a.href = url;
@@ -264,6 +362,9 @@ document.addEventListener("DOMContentLoaded", function () {
                   resolve(true);
                 }, 100);
               } catch (e) {
+                if (window.Debug) {
+                  Debug.error("CALIBRATION", "Błąd przy pobieraniu (blob)", e);
+                }
                 console.error("Błąd przy pobieraniu (blob):", e);
                 document.body.removeChild(progressMsg);
                 alert("Wystąpił błąd podczas pobierania obrazu: " + e.message);
@@ -273,6 +374,13 @@ document.addEventListener("DOMContentLoaded", function () {
 
             function downloadUsingDataURL(dataURL) {
               try {
+                if (window.Debug) {
+                  Debug.debug(
+                    "CALIBRATION",
+                    "Pobieranie obrazu za pomocą DataURL"
+                  );
+                }
+
                 const a = document.createElement("a");
                 a.href = dataURL;
                 a.download = fileName;
@@ -285,6 +393,13 @@ document.addEventListener("DOMContentLoaded", function () {
                   resolve(true);
                 }, 100);
               } catch (e) {
+                if (window.Debug) {
+                  Debug.error(
+                    "CALIBRATION",
+                    "Błąd przy pobieraniu (dataURL)",
+                    e
+                  );
+                }
                 console.error("Błąd przy pobieraniu (dataURL):", e);
                 document.body.removeChild(progressMsg);
                 alert("Wystąpił błąd podczas pobierania obrazu: " + e.message);
@@ -305,11 +420,17 @@ document.addEventListener("DOMContentLoaded", function () {
             };
 
             mockupImg.onload = function () {
+              if (window.Debug) {
+                Debug.debug("CALIBRATION", "Załadowano obraz mockupu");
+              }
               imagesLoaded++;
               if (imagesLoaded === 2) drawAndDownload();
             };
 
             userImg.onload = function () {
+              if (window.Debug) {
+                Debug.debug("CALIBRATION", "Załadowano obraz użytkownika");
+              }
               imagesLoaded++;
               if (imagesLoaded === 2) drawAndDownload();
             };
@@ -326,6 +447,9 @@ document.addEventListener("DOMContentLoaded", function () {
               }
             }, 10000);
           } catch (e) {
+            if (window.Debug) {
+              Debug.error("CALIBRATION", "Błąd generowania obrazu", e);
+            }
             console.error("Błąd generowania obrazu:", e);
             document.body.removeChild(progressMsg);
             alert("Wystąpił błąd podczas generowania obrazu: " + e.message);
@@ -335,6 +459,12 @@ document.addEventListener("DOMContentLoaded", function () {
       });
     };
 
+    if (window.Debug) {
+      Debug.info(
+        "CALIBRATION",
+        "Nadpisano funkcję generateAndDownloadImage z nowymi współczynnikami kalibracji"
+      );
+    }
     console.log(
       "Nadpisano funkcję generateAndDownloadImage z nowymi współczynnikami kalibracji."
     );
@@ -342,6 +472,10 @@ document.addEventListener("DOMContentLoaded", function () {
 
   // Funkcja wyświetlająca powiadomienie
   function showNotification(message) {
+    if (window.Debug) {
+      Debug.debug("CALIBRATION", `Wyświetlanie powiadomienia: ${message}`);
+    }
+
     const notification = document.createElement("div");
     notification.style.position = "fixed";
     notification.style.bottom = "20px";
@@ -368,14 +502,29 @@ document.addEventListener("DOMContentLoaded", function () {
 
   // Nasłuchiwacze zdarzeń dla pól kalibracji
   xPositionFactor.addEventListener("input", function () {
+    if (window.Debug) {
+      Debug.debug(
+        "CALIBRATION",
+        `Zmiana współczynnika pozycji X: ${this.value}`
+      );
+    }
     xPositionFactorValue.textContent = this.value;
   });
 
   yPositionFactor.addEventListener("input", function () {
+    if (window.Debug) {
+      Debug.debug(
+        "CALIBRATION",
+        `Zmiana współczynnika pozycji Y: ${this.value}`
+      );
+    }
     yPositionFactorValue.textContent = this.value;
   });
 
   zoomFactor.addEventListener("input", function () {
+    if (window.Debug) {
+      Debug.debug("CALIBRATION", `Zmiana współczynnika zoom: ${this.value}`);
+    }
     zoomFactorValue.textContent = this.value;
   });
 
@@ -385,6 +534,14 @@ document.addEventListener("DOMContentLoaded", function () {
       const x = parseFloat(this.getAttribute("data-x"));
       const y = parseFloat(this.getAttribute("data-y"));
       const zoom = parseFloat(this.getAttribute("data-zoom"));
+
+      if (window.Debug) {
+        Debug.debug("CALIBRATION", "Wybrano predefiniowane ustawienia", {
+          x,
+          y,
+          zoom,
+        });
+      }
 
       xPositionFactor.value = x;
       yPositionFactor.value = y;
@@ -398,11 +555,17 @@ document.addEventListener("DOMContentLoaded", function () {
 
   // Otwórz panel kalibracji
   calibrationBubble.addEventListener("click", function () {
+    if (window.Debug) {
+      Debug.debug("CALIBRATION", "Otwieranie panelu kalibracji");
+    }
     calibrationPanel.classList.add("active");
   });
 
   // Zamknij panel kalibracji
   calibrationClose.addEventListener("click", function () {
+    if (window.Debug) {
+      Debug.debug("CALIBRATION", "Zamykanie panelu kalibracji");
+    }
     calibrationPanel.classList.remove("active");
   });
 
@@ -419,5 +582,11 @@ document.addEventListener("DOMContentLoaded", function () {
   // Opóźniamy to trochę, aby upewnić się, że oryginalny kod jest już załadowany
   setTimeout(monkeyPatchGenerateAndDownloadImage, 1000);
 
+  if (window.Debug) {
+    Debug.info(
+      "CALIBRATION",
+      "Moduł kalibracji obrazu został zainicjalizowany"
+    );
+  }
   console.log("Moduł kalibracji obrazu został zainicjalizowany.");
 });

@@ -8,10 +8,10 @@ const Debug = (function () {
 
   // Poziomy logowania
   const LEVELS = {
-    INFO: { name: "INFO", color: "blue" },
-    WARN: { name: "WARN", color: "orange" },
-    ERROR: { name: "ERROR", color: "red" },
-    DEBUG: { name: "DEBUG", color: "green" },
+    INFO: { name: "INFO", color: "lightblue" },
+    WARN: { name: "WARN", color: "lightorange" },
+    ERROR: { name: "ERROR", color: "lightred" },
+    DEBUG: { name: "DEBUG", color: "lightgreen" },
   };
 
   /**
