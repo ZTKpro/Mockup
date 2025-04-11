@@ -1,0 +1,268 @@
+/**
+ * ui.js - Plik zawierający obsługę interfejsu użytkownika
+ */
+
+const UI = (function() {
+  /**
+   * Inicjalizuje obsługę kontrolek i przycisków interfejsu
+   */
+  function init() {
+    setupRotationControls();
+    setupZoomControls();
+    setupPositionControls();
+    setupBackgroundControls();
+    setupActionButtons();
+  }
+  
+  /**
+   * Konfiguruje kontrolki obrotu
+   */
+  function setupRotationControls() {
+    // Suwak obrotu
+    Elements.rotateSlider.addEventListener("input", function() {
+      const rotation = parseInt(this.value);
+      Elements.rotateValue.textContent = rotation;
+      
+      // Zastosuj transformację
+      const transformEvent = new CustomEvent("transformChange", {
+        detail: { type: "rotation", value: rotation }
+      });
+      document.dispatchEvent(transformEvent);
+    });
+    
+    // Przyciski obrotu w lewo/prawo
+    Elements.rotateLeft.addEventListener("click", function() {
+      const rotation = parseInt(Elements.rotateSlider.value) - 90;
+      const adjustedRotation = rotation < -180 ? rotation + 360 : rotation;
+      
+      Elements.rotateSlider.value = adjustedRotation;
+      Elements.rotateValue.textContent = adjustedRotation;
+      
+      // Zastosuj transformację
+      const transformEvent = new CustomEvent("transformChange", {
+        detail: { type: "rotation", value: adjustedRotation }
+      });
+      document.dispatchEvent(transformEvent);
+    });
+    
+    Elements.rotateRight.addEventListener("click", function() {
+      const rotation = parseInt(Elements.rotateSlider.value) + 90;
+      const adjustedRotation = rotation > 180 ? rotation - 360 : rotation;
+      
+      Elements.rotateSlider.value = adjustedRotation;
+      Elements.rotateValue.textContent = adjustedRotation;
+      
+      // Zastosuj transformację
+      const transformEvent = new CustomEvent("transformChange", {
+        detail: { type: "rotation", value: adjustedRotation }
+      });
+      document.dispatchEvent(transformEvent);
+    });
+  }
+  
+  /**
+   * Konfiguruje kontrolki powiększenia
+   */
+  function setupZoomControls() {
+    // Suwak powiększenia
+    Elements.zoomSlider.addEventListener("input", function() {
+      const zoom = parseInt(this.value);
+      Elements.zoomValue.textContent = zoom;
+      
+      // Zastosuj transformację
+      const transformEvent = new CustomEvent("transformChange", {
+        detail: { type: "zoom", value: zoom }
+      });
+      document.dispatchEvent(transformEvent);
+    });
+    
+    // Przyciski powiększania/pomniejszania
+    Elements.zoomIn.addEventListener("click", function() {
+      const zoom = Math.min(
+        parseInt(Elements.zoomSlider.value) + 10,
+        EditorConfig.limits.zoom.max
+      );
+      
+      Elements.zoomSlider.value = zoom;
+      Elements.zoomValue.textContent = zoom;
+      
+      // Zastosuj transformację
+      const transformEvent = new CustomEvent("transformChange", {
+        detail: { type: "zoom", value: zoom }
+      });
+      document.dispatchEvent(transformEvent);
+    });
+    
+    Elements.zoomOut.addEventListener("click", function() {
+      const zoom = Math.max(
+        parseInt(Elements.zoomSlider.value) - 10,
+        EditorConfig.limits.zoom.min
+      );
+      
+      Elements.zoomSlider.value = zoom;
+      Elements.zoomValue.textContent = zoom;
+      
+      // Zastosuj transformację
+      const transformEvent = new CustomEvent("transformChange", {
+        detail: { type: "zoom", value: zoom }
+      });
+      document.dispatchEvent(transformEvent);
+    });
+  }
+  
+  /**
+   * Konfiguruje kontrolki pozycji
+   */
+  function setupPositionControls() {
+    // Suwak pozycji X
+    Elements.moveXSlider.addEventListener("input", function() {
+      const positionX = parseInt(this.value);
+      Elements.moveXValue.textContent = positionX;
+      
+      // Zastosuj transformację
+      const transformEvent = new CustomEvent("transformChange", {
+        detail: { type: "positionX", value: positionX }
+      });
+      document.dispatchEvent(transformEvent);
+    });
+    
+    // Suwak pozycji Y
+    Elements.moveYSlider.addEventListener("input", function() {
+      const positionY = parseInt(this.value);
+      Elements.moveYValue.textContent = positionY;
+      
+      // Zastosuj transformację
+      const transformEvent = new CustomEvent("transformChange", {
+        detail: { type: "positionY", value: positionY }
+      });
+      document.dispatchEvent(transformEvent);
+    });
+  }
+  
+  /**
+   * Konfiguruje kontrolki koloru tła
+   */
+  function setupBackgroundControls() {
+    // Wybór koloru tła
+    Elements.backgroundColorPicker.addEventListener("input", function() {
+      const color = this.value;
+      Elements.colorValue.textContent = color;
+      Elements.editorContainer.style.backgroundColor = color;
+      
+      // Zastosuj transformację
+      const transformEvent = new CustomEvent("transformChange", {
+        detail: { type: "backgroundColor", value: color }
+      });
+      document.dispatchEvent(transformEvent);
+    });
+    
+    // Przycisk resetowania koloru tła
+    Elements.resetColorButton.addEventListener("click", function() {
+      const defaultColor = EditorConfig.defaults.backgroundColor;
+      Elements.backgroundColorPicker.value = defaultColor;
+      Elements.colorValue.textContent = defaultColor;
+      Elements.editorContainer.style.backgroundColor = defaultColor;
+      
+      // Zastosuj transformację
+      const transformEvent = new CustomEvent("transformChange", {
+        detail: { type: "backgroundColor", value: defaultColor }
+      });
+      document.dispatchEvent(transformEvent);
+    });
+  }
+  
+  /**
+   * Konfiguruje przyciski akcji
+   */
+  function setupActionButtons() {
+    // Przycisk resetowania
+    Elements.resetButton.addEventListener("click", function() {
+      const resetEvent = new CustomEvent("resetTransformations");
+      document.dispatchEvent(resetEvent);
+    });
+    
+    // Przycisk centrowania
+    Elements.centerButton.addEventListener("click", function() {
+      const centerEvent = new CustomEvent("centerImage");
+      document.dispatchEvent(centerEvent);
+    });
+    
+    // Przyciski warstw
+    Elements.layerFrontButton.addEventListener("click", function() {
+      const layerEvent = new CustomEvent("transformChange", {
+        detail: { type: "layerOrder", value: true }
+      });
+      document.dispatchEvent(layerEvent);
+    });
+    
+    Elements.layerBackButton.addEventListener("click", function() {
+      const layerEvent = new CustomEvent("transformChange", {
+        detail: { type: "layerOrder", value: false }
+      });
+      document.dispatchEvent(layerEvent);
+    });
+  }
+  
+  /**
+   * Aktualizuje wartości kontrolek na podstawie stanu transformacji
+   * @param {object} state - Stan transformacji
+   */
+  function updateControlsFromState(state) {
+    // Aktualizuj suwaki i wartości
+    Elements.rotateSlider.value = state.currentRotation;
+    Elements.rotateValue.textContent = state.currentRotation;
+    
+    Elements.zoomSlider.value = state.currentZoom;
+    Elements.zoomValue.textContent = state.currentZoom;
+    
+    Elements.moveXSlider.value = state.currentX;
+    Elements.moveYSlider.value = state.currentY;
+    Elements.moveXValue.textContent = state.currentX;
+    Elements.moveYValue.textContent = state.currentY;
+    
+    // Aktualizuj kolor tła
+    Elements.backgroundColorPicker.value = state.currentBackgroundColor;
+    Elements.colorValue.textContent = state.currentBackgroundColor;
+    Elements.editorContainer.style.backgroundColor = state.currentBackgroundColor;
+  }
+  
+  /**
+   * Pokazuje powiadomienie
+   * @param {string} message - Wiadomość do wyświetlenia
+   * @param {number} duration - Czas wyświetlania w ms
+   */
+  function showNotification(message, duration = 2000) {
+    const notification = document.createElement("div");
+    notification.style.position = "fixed";
+    notification.style.bottom = "20px";
+    notification.style.left = "50%";
+    notification.style.transform = "translateX(-50%)";
+    notification.style.backgroundColor = "rgba(0, 0, 0, 0.8)";
+    notification.style.color = "white";
+    notification.style.padding = "10px 20px";
+    notification.style.borderRadius = "5px";
+    notification.style.zIndex = "9999";
+    notification.textContent = message;
+    
+    document.body.appendChild(notification);
+    
+    setTimeout(() => {
+      notification.style.opacity = "0";
+      notification.style.transition = "opacity 0.5s";
+      
+      setTimeout(() => {
+        document.body.removeChild(notification);
+      }, 500);
+    }, duration);
+  }
+  
+  // Zwróć publiczny interfejs modułu
+  return {
+    init,
+    updateControlsFromState,
+    showNotification
+  };
+})();
+
+// Eksport modułu jako obiekt globalny
+window.UI = UI;

@@ -1,1283 +1,140 @@
-// Pobranie elementów DOM
-let currentBackgroundColor = "#FFFFFF";
+/**
+ * index.js - Główny plik aplikacji integrujący wszystkie moduły
+ */
 
-const uploadInput = document.getElementById("image-upload");
-const imagePreview = document.getElementById("image-preview");
-const mockupImage = document.getElementById("mockup-image");
-const editorContainer = document.getElementById("editor-container");
-const controls = document.getElementById("controls");
-const dragInstruction = document.getElementById("drag-instruction");
-const dropArea = document.getElementById("drop-area");
-const dropText = document.querySelector(".drop-text");
-const uploadText = document.querySelector(".upload-text");
-const mockupGallery = document.getElementById("mockup-gallery");
-const downloadSelectedMockups = document.getElementById(
-  "download-selected-mockups"
-);
+document.addEventListener("DOMContentLoaded", function () {
+  // Inicjalizacja wszystkich modułów
+  function initializeApp() {
+    console.log("Inicjalizacja aplikacji edytora etui na telefon");
 
-// Lista dostępnych mockupów
-let mockupThumbnails = [];
-let mockupsData = []; // Przechowuje dane mockupów razem z ich nazwami
+    // Inicjalizacja obsługi transformacji
+    Transformations.init();
 
-// Suwaki i przyciski kontrolne
-const rotateSlider = document.getElementById("rotate-slider");
-const rotateValue = document.getElementById("rotate-value");
-const rotateLeft = document.getElementById("rotate-left");
-const rotateRight = document.getElementById("rotate-right");
+    // Inicjalizacja obsługi zdarzeń UI
+    UI.init();
 
-const zoomSlider = document.getElementById("zoom-slider");
-const zoomValue = document.getElementById("zoom-value");
-const zoomIn = document.getElementById("zoom-in");
-const zoomOut = document.getElementById("zoom-out");
+    // Inicjalizacja obsługi obrazu użytkownika
+    UserImage.init();
 
-const resetButton = document.getElementById("reset-button");
-const centerButton = document.getElementById("center-button");
-const layerFrontButton = document.getElementById("layer-front");
-const layerBackButton = document.getElementById("layer-back");
+    // Wczytaj parametry z localStorage
+    Storage.loadParametersFromLocalStorage();
 
-// Suwaki przesuwania obrazu
-const moveXSlider = document.getElementById("move-x-slider");
-const moveYSlider = document.getElementById("move-y-slider");
-const moveXValue = document.getElementById("move-x-value");
-const moveYValue = document.getElementById("move-y-value");
+    // Inicjalizacja mockupów
+    Mockups.init();
 
-// Przycisk pobierania
-const downloadButton = document.getElementById("download-button");
+    // Inicjalizacja eksportu
+    Export.init();
 
-// Aktualny mockup
-let currentMockupFile = "";
-let currentMockupName = ""; // Przechowuje nazwę aktualnego mockupu
-let currentMockupId = 0; // Przechowuje ID aktualnego mockupu
-let currentMockupModel = ""; // Przechowuje model aktualnego mockupu
-
-// Zmienne stanu
-let isDragging = false;
-let startX, startY, initialX, initialY;
-let currentX = 0;
-let currentY = 0;
-let currentRotation = 0;
-let currentZoom = 100;
-let userImageLoaded = false; // Flaga do śledzenia, czy obraz użytkownika został wczytany
-
-// Object to store parameters for each mockup
-let mockupParameters = {};
-
-// Tablica przechowująca wybrane mockupy
-let selectedMockups = [];
-
-// Function to save the current parameters for the current mockup
-function saveCurrentMockupParameters() {
-  if (currentMockupId && userImageLoaded) {
-    mockupParameters[currentMockupId] = {
-      rotation: currentRotation,
-      zoom: currentZoom,
-      positionX: currentX,
-      positionY: currentY,
-      layerFront: imagePreview.style.zIndex >= 10,
-    };
-
-    // Save to localStorage for persistence
-    saveParametersToLocalStorage();
-  }
-}
-
-// Function to load parameters for a mockup
-function loadMockupParameters(mockupId) {
-  if (mockupId && mockupParameters[mockupId] && userImageLoaded) {
-    const params = mockupParameters[mockupId];
-
-    // Apply saved parameters
-    currentRotation = params.rotation;
-    currentZoom = params.zoom;
-    currentX = params.positionX;
-    currentY = params.positionY;
-
-    // Update sliders to reflect loaded values
-    rotateSlider.value = currentRotation;
-    rotateValue.textContent = currentRotation;
-
-    zoomSlider.value = currentZoom;
-    zoomValue.textContent = currentZoom;
-
-    moveXSlider.value = currentX;
-    moveYSlider.value = currentY;
-    moveXValue.textContent = currentX;
-    moveYValue.textContent = currentY;
-
-    // Set layer order
-    if (params.layerFront) {
-      imagePreview.style.zIndex = "20";
-    } else {
-      imagePreview.style.zIndex = "5";
-    }
-
-    // Apply transformations
-    updateTransform();
-  } else {
-    // If no saved parameters, reset to defaults
-    resetTransformations();
-  }
-}
-
-// Save all parameters to localStorage
-function saveParametersToLocalStorage() {
-  localStorage.setItem("mockupParameters", JSON.stringify(mockupParameters));
-}
-
-// Load all parameters from localStorage on page load
-function loadParametersFromLocalStorage() {
-  const savedParams = localStorage.getItem("mockupParameters");
-  if (savedParams) {
-    try {
-      mockupParameters = JSON.parse(savedParams);
-    } catch (e) {
-      console.error("Error parsing saved mockup parameters:", e);
-      mockupParameters = {};
-    }
-  }
-}
-
-// Obsługa uploadu pliku przez kliknięcie
-uploadInput.addEventListener("change", handleFileSelect);
-
-function setupModelGroupListeners() {
-  const modelHeaders = document.querySelectorAll(".model-header");
-  modelHeaders.forEach((header) => {
-    header.addEventListener("click", function () {
-      const mockupsContainer = this.nextElementSibling;
-      const icon = this.querySelector(".model-collapse-icon");
-
-      mockupsContainer.classList.toggle("collapsed");
-      icon.classList.toggle("collapsed");
-    });
-  });
-}
-
-// Function to generate mockup thumbnails grouped by model
-function generateMockupThumbnails(mockups) {
-  mockupGallery.innerHTML = ""; // Clear gallery
-
-  if (mockups.length === 0) {
-    // Just show the add button if no mockups
-    const addButtonHTML = `
-      <div class="mockup-thumbnail window-frame add-mockup-button" title="Dodaj nowy mockup">
-        <div class="window-content">
-          <div class="add-button-content">+</div>
-        </div>
-      </div>
-    `;
-    mockupGallery.innerHTML = addButtonHTML;
-  } else {
-    // Group mockups by model
-    const mockupsByModel = {};
-    mockups.forEach((mockup) => {
-      const model = mockup.model || "Inne";
-      if (!mockupsByModel[model]) {
-        mockupsByModel[model] = [];
-      }
-      mockupsByModel[model].push(mockup);
-    });
-
-    // Generate model filters
-    generateModelFilters(Object.keys(mockupsByModel).sort(), mockupsByModel);
-
-    // Generate mockup groups by model
-    Object.keys(mockupsByModel)
-      .sort()
-      .forEach((model) => {
-        const mockupsForModel = mockupsByModel[model];
-
-        const modelGroupHTML = `
-        <div class="model-group" data-model="${model}">
-          <div class="model-header">
-            <div class="model-name">
-              <input type="checkbox" class="group-select-checkbox" id="group-select-${model.replace(
-                /\s+/g,
-                "-"
-              )}" data-model="${model}">
-              <label for="group-select-${model.replace(
-                /\s+/g,
-                "-"
-              )}">${model} <span class="model-count">(${
-          mockupsForModel.length
-        })</span></label>
-            </div>
-            <span class="model-collapse-icon">▼</span>
-          </div>
-          <div class="model-mockups">
-            ${generateMockupsHTML(mockupsForModel)}
-          </div>
-        </div>
-      `;
-
-        mockupGallery.innerHTML += modelGroupHTML;
-      });
-
-    // Add button for adding new mockups
-    const addButtonHTML = `
-      <div class="mockup-thumbnail window-frame add-mockup-button" title="Dodaj nowy mockup">
-        <div class="window-content">
-          <div class="add-button-content">+</div>
-        </div>
-      </div>
-    `;
-
-    mockupGallery.innerHTML += addButtonHTML;
-
-    // Set first mockup as active if available
-    if (mockups.length > 0) {
-      currentMockupFile = mockups[0].path;
-      currentMockupName = mockups[0].name;
-      currentMockupId = mockups[0].id;
-      currentMockupModel = mockups[0].model || "Inne";
-      mockupImage.src = currentMockupFile;
-    }
+    // Konfiguracja nasłuchiwaczy zdarzeń
+    setupEventListeners();
   }
 
-  // Setup event listeners - Always run these, regardless of whether there are mockups or not
-  setupModelGroupListeners();
-  setupThumbnailListeners();
-  setupSelectionButtons();
-  setupGroupSelectionCheckboxes(); // Add this new function to set up group selection checkboxes
-}
-
-function setupGroupSelectionCheckboxes() {
-  const groupCheckboxes = document.querySelectorAll(".group-select-checkbox");
-
-  groupCheckboxes.forEach((checkbox) => {
-    checkbox.addEventListener("change", function () {
-      const model = this.getAttribute("data-model");
-      const isChecked = this.checked;
-      const modelGroup = document.querySelector(
-        `.model-group[data-model="${model}"]`
-      );
-
-      if (modelGroup) {
-        const checkboxes = modelGroup.querySelectorAll(".mockup-checkbox");
-
-        checkboxes.forEach((cb) => {
-          cb.checked = isChecked;
-
-          // Trigger the change event to update the selectedMockups array
-          const event = new Event("change", { bubbles: true });
-          cb.dispatchEvent(event);
-        });
-      }
-    });
-  });
-}
-
-// Helper function to generate model filters
-function generateModelFilters(models, mockupsByModel) {
-  const modelFilters = document.getElementById("model-filters");
-  if (!modelFilters) return;
-
-  const searchHTML = `
-    <div class="filter-header">Filtruj według modelu:</div>
-    <div class="model-search-container">
-      <input type="text" id="model-search" class="model-search-input" placeholder="Wyszukaj model...">
-    </div>
-  `;
-
-  modelFilters.innerHTML = searchHTML;
-
-  // Add event listener for search input
-  setTimeout(() => {
-    const searchInput = document.getElementById("model-search");
-
-    if (searchInput) {
-      searchInput.addEventListener("input", function () {
-        const searchTerm = this.value.toLowerCase().trim();
-
-        // Show/hide model groups based on search term
-        document.querySelectorAll(".model-group").forEach((group) => {
-          const modelName = group.getAttribute("data-model").toLowerCase();
-
-          if (searchTerm === "" || modelName.includes(searchTerm)) {
-            group.style.display = "block";
-          } else {
-            group.style.display = "none";
-          }
-        });
-      });
-    }
-  }, 100);
-}
-
-// Helper function to generate mockup HTML for each model
-function generateMockupsHTML(mockups) {
-  let html = "";
-
-  mockups.forEach((mockup) => {
-    // Using model as the display name since we've simplified the structure
-    const displayName = mockup.model
-      .replace(/\*/g, "")
-      .replace(/#/g, "")
-      .trim();
-
-    html += `
-      <div class="mockup-thumbnail window-frame" 
-           data-mockup="${mockup.path}" 
-           data-id="${mockup.id}" 
-           data-name="${displayName}" 
-           data-model="${mockup.model}">
-        <input type="checkbox" class="mockup-checkbox" id="checkbox-mockup-${mockup.id}" />
-        <div class="window-title-bar">${displayName}</div>
-        <div class="window-content">
-          <img src="${mockup.path}" alt="${displayName}" />
-        </div>
-      </div>
-    `;
-  });
-
-  return html;
-}
-
-// Funkcja przypisująca obsługę kliknięć do miniaturek
-function setupThumbnailListeners() {
-  mockupThumbnails = document.querySelectorAll(".mockup-thumbnail");
-
-  // Obsługa kliknięć na miniaturki
-  mockupThumbnails.forEach((thumbnail) => {
-    thumbnail.addEventListener("click", function (e) {
-      // Ignoruj kliknięcie, jeśli kliknięto na checkbox lub jest to przycisk dodawania
-      if (
-        e.target.type === "checkbox" ||
-        this.classList.contains("add-mockup-button")
-      )
-        return;
-
-      const mockupPath = this.getAttribute("data-mockup");
-      const mockupId = parseInt(this.getAttribute("data-id"), 10);
-      const mockupName = this.getAttribute("data-name");
-      const mockupModel = this.getAttribute("data-model") || "Inne";
-
-      changeMockup(mockupPath, mockupName, mockupId, mockupModel);
-      updateMockupThumbnailSelection(mockupPath);
-    });
-  });
-
-  // Obsługa checkboxów
-  const checkboxes = document.querySelectorAll(".mockup-checkbox");
-  checkboxes.forEach((checkbox) => {
-    checkbox.addEventListener("change", function (e) {
-      e.stopPropagation(); // Zatrzymaj propagację zdarzenia
-
-      const mockupDiv = this.closest(".mockup-thumbnail");
-      const mockupPath = mockupDiv.getAttribute("data-mockup");
-      const mockupId = parseInt(mockupDiv.getAttribute("data-id"), 10);
-      const mockupName = mockupDiv.getAttribute("data-name");
-      const mockupModel = mockupDiv.getAttribute("data-model") || "Inne";
-
-      if (this.checked) {
-        // Dodaj do wybranych mockupów
-        if (!selectedMockups.some((m) => m.path === mockupPath)) {
-          selectedMockups.push({
-            path: mockupPath,
-            id: mockupId,
-            name: mockupName,
-            model: mockupModel,
-          });
-        }
-      } else {
-        // Usuń z wybranych mockupów
-        selectedMockups = selectedMockups.filter(
-          (mockup) => mockup.path !== mockupPath
+  /**
+   * Konfiguruje nasłuchiwacze zdarzeń komunikacji między modułami
+   */
+  function setupEventListeners() {
+    // Obsługa zmiany mockupu
+    document.addEventListener("mockupChanging", function (e) {
+      // Zapisz parametry poprzedniego mockupu przed zmianą
+      if (e.detail.previousId && UserImage.isImageLoaded()) {
+        Storage.saveCurrentMockupParameters(
+          e.detail.previousId,
+          Transformations.getState()
         );
       }
-
-      // Update group checkbox state based on individual checkboxes
-      updateGroupCheckboxState(mockupModel);
-
-      console.log("Wybrane mockupy:", selectedMockups);
-    });
-  });
-
-  // Dodaj obsługę przycisku dodawania mockupów
-  const addMockupButton = document.querySelector(".add-mockup-button");
-  if (addMockupButton) {
-    addMockupButton.addEventListener("click", function () {
-      window.location.href = "dodaj.html";
-    });
-  }
-}
-
-function updateGroupCheckboxState(model) {
-  const groupCheckbox = document.querySelector(
-    `.group-select-checkbox[data-model="${model}"]`
-  );
-  if (!groupCheckbox) return;
-
-  const modelGroup = document.querySelector(
-    `.model-group[data-model="${model}"]`
-  );
-  if (!modelGroup) return;
-
-  const allCheckboxes = modelGroup.querySelectorAll(".mockup-checkbox");
-  const checkedCheckboxes = modelGroup.querySelectorAll(
-    ".mockup-checkbox:checked"
-  );
-
-  // Set the group checkbox state based on individual checkboxes
-  if (checkedCheckboxes.length === 0) {
-    groupCheckbox.checked = false;
-    groupCheckbox.indeterminate = false;
-  } else if (checkedCheckboxes.length === allCheckboxes.length) {
-    groupCheckbox.checked = true;
-    groupCheckbox.indeterminate = false;
-  } else {
-    groupCheckbox.checked = false;
-    groupCheckbox.indeterminate = true;
-  }
-}
-
-// Funkcja aktualizująca zaznaczenie miniaturki
-function updateMockupThumbnailSelection(selectedMockup) {
-  mockupThumbnails.forEach((thumbnail) => {
-    // Pomijamy przycisk dodawania przy aktualizowaniu zaznaczenia
-    if (!thumbnail.classList.contains("add-mockup-button")) {
-      if (thumbnail.getAttribute("data-mockup") === selectedMockup) {
-        thumbnail.classList.add("active");
-      } else {
-        thumbnail.classList.remove("active");
-      }
-    }
-  });
-}
-
-// Obsługa uploadu przez drag & drop
-["dragenter", "dragover", "dragleave", "drop"].forEach((eventName) => {
-  dropArea.addEventListener(eventName, preventDefaults, false);
-});
-
-function preventDefaults(e) {
-  e.preventDefault();
-  e.stopPropagation();
-}
-
-["dragenter", "dragover"].forEach((eventName) => {
-  dropArea.addEventListener(eventName, highlight, false);
-});
-
-["dragleave", "drop"].forEach((eventName) => {
-  dropArea.addEventListener(eventName, unhighlight, false);
-});
-
-function highlight() {
-  dropArea.classList.add("highlight");
-  uploadText.style.display = "none";
-  dropText.style.display = "block";
-}
-
-function unhighlight() {
-  dropArea.classList.remove("highlight");
-  uploadText.style.display = "block";
-  dropText.style.display = "none";
-}
-
-dropArea.addEventListener("drop", handleDrop, false);
-
-function handleDrop(e) {
-  const dt = e.dataTransfer;
-  const files = dt.files;
-  if (files.length) {
-    handleFiles(files);
-  }
-}
-
-// Funkcja obsługująca wybrane pliki (kliknięcie lub drop)
-function handleFileSelect(e) {
-  const files = e.target.files;
-  handleFiles(files);
-}
-
-async function handleFiles(files) {
-  if (files.length && files[0].type.match("image.*")) {
-    try {
-      // Show a loading message
-      const loadingMsg = document.createElement("div");
-      loadingMsg.style.position = "fixed";
-      loadingMsg.style.top = "50%";
-      loadingMsg.style.left = "50%";
-      loadingMsg.style.transform = "translate(-50%, -50%)";
-      loadingMsg.style.background = "rgba(0, 0, 0, 0.8)";
-      loadingMsg.style.color = "white";
-      loadingMsg.style.padding = "20px";
-      loadingMsg.style.borderRadius = "10px";
-      loadingMsg.style.zIndex = "9999";
-      loadingMsg.textContent = "Wgrywanie obrazu...";
-      document.body.appendChild(loadingMsg);
-
-      // Create a FormData object
-      const formData = new FormData();
-      formData.append("image", files[0]);
-
-      // Send the file to the server
-      const response = await fetch("/api/upload/user-image", {
-        method: "POST",
-        body: formData,
-      });
-
-      const result = await response.json();
-      document.body.removeChild(loadingMsg);
-
-      if (result.success) {
-        // Use the base64 image data instead of file path
-        imagePreview.src = result.imageData;
-        imagePreview.onload = function () {
-          // Show controls and instructions
-          controls.style.display = "block";
-          dragInstruction.style.display = "block";
-
-          // Set flag that user image is loaded
-          userImageLoaded = true;
-
-          // Load parameters for current mockup or reset if none exist
-          loadMockupParameters(currentMockupId);
-        };
-      } else {
-        alert("Error: " + (result.error || "Failed to upload image"));
-      }
-    } catch (error) {
-      console.error("Error uploading image:", error);
-      alert("Wystąpił błąd podczas przesyłania obrazu.");
-    }
-  } else {
-    alert("Proszę wybrać plik ze zdjęciem");
-  }
-}
-
-// Obsługa przesuwania obrazu
-imagePreview.addEventListener("mousedown", startDrag);
-window.addEventListener("mouseup", stopDrag);
-window.addEventListener("mousemove", drag);
-
-function startDrag(e) {
-  isDragging = true;
-  startX = e.clientX;
-  startY = e.clientY;
-  initialX = currentX;
-  initialY = currentY;
-  imagePreview.style.cursor = "grabbing";
-}
-
-function stopDrag() {
-  isDragging = false;
-  imagePreview.style.cursor = "move";
-
-  // Save parameters if we were dragging
-  if (userImageLoaded) {
-    saveCurrentMockupParameters();
-  }
-}
-
-function drag(e) {
-  if (isDragging) {
-    const dx = e.clientX - startX;
-    const dy = e.clientY - startY;
-
-    currentX = initialX + dx;
-    currentY = initialY + dy;
-
-    // Ograniczenie wartości
-    currentX = Math.max(-150, Math.min(150, currentX));
-    currentY = Math.max(-150, Math.min(150, currentY));
-
-    // Aktualizacja suwaków
-    moveXSlider.value = currentX;
-    moveYSlider.value = currentY;
-    moveXValue.textContent = currentX;
-    moveYValue.textContent = currentY;
-
-    updateTransform();
-  }
-}
-
-// Obsługa kontrolek
-rotateSlider.addEventListener("input", function () {
-  currentRotation = parseInt(this.value);
-  rotateValue.textContent = currentRotation;
-  updateTransform();
-  saveCurrentMockupParameters();
-});
-
-zoomSlider.addEventListener("input", function () {
-  currentZoom = parseInt(this.value);
-  zoomValue.textContent = currentZoom;
-  updateTransform();
-  saveCurrentMockupParameters();
-});
-
-rotateLeft.addEventListener("click", function () {
-  currentRotation -= 90;
-  if (currentRotation < -180) currentRotation += 360;
-  rotateSlider.value = currentRotation;
-  rotateValue.textContent = currentRotation;
-  updateTransform();
-  saveCurrentMockupParameters();
-});
-
-rotateRight.addEventListener("click", function () {
-  currentRotation += 90;
-  if (currentRotation > 180) currentRotation -= 360;
-  rotateSlider.value = currentRotation;
-  rotateValue.textContent = currentRotation;
-  updateTransform();
-  saveCurrentMockupParameters();
-});
-
-zoomIn.addEventListener("click", function () {
-  currentZoom = Math.min(currentZoom + 10, 300);
-  zoomSlider.value = currentZoom;
-  zoomValue.textContent = currentZoom;
-  updateTransform();
-  saveCurrentMockupParameters();
-});
-
-zoomOut.addEventListener("click", function () {
-  currentZoom = Math.max(currentZoom - 10, 10);
-  zoomSlider.value = currentZoom;
-  zoomValue.textContent = currentZoom;
-  updateTransform();
-  saveCurrentMockupParameters();
-});
-
-resetButton.addEventListener("click", function () {
-  resetTransformations();
-  saveCurrentMockupParameters();
-});
-
-centerButton.addEventListener("click", function () {
-  centerImage();
-  saveCurrentMockupParameters();
-});
-
-layerFrontButton.addEventListener("click", function () {
-  imagePreview.style.zIndex = "20";
-  saveCurrentMockupParameters();
-});
-
-layerBackButton.addEventListener("click", function () {
-  imagePreview.style.zIndex = "5";
-  saveCurrentMockupParameters();
-});
-
-// Obsługa suwaków przesuwania
-moveXSlider.addEventListener("input", function () {
-  currentX = parseInt(this.value);
-  moveXValue.textContent = currentX;
-  updateTransform();
-  saveCurrentMockupParameters();
-});
-
-moveYSlider.addEventListener("input", function () {
-  currentY = parseInt(this.value);
-  moveYValue.textContent = currentY;
-  updateTransform();
-  saveCurrentMockupParameters();
-});
-
-// Obsługa przycisku pobierania wszystkich wybranych mockupów
-downloadSelectedMockups.addEventListener("click", function () {
-  if (selectedMockups.length === 0) {
-    alert("Najpierw wybierz mockupy do pobrania!");
-    return;
-  }
-
-  if (!userImageLoaded) {
-    alert("Najpierw wgraj zdjęcie!");
-    return;
-  }
-
-  downloadMultipleMockups();
-});
-
-// Funkcja do pobierania wielu mockupów
-async function downloadMultipleMockups() {
-  // Tworzymy element do pokazywania postępu
-  const progressMsg = document.createElement("div");
-  progressMsg.style.position = "fixed";
-  progressMsg.style.top = "50%";
-  progressMsg.style.left = "50%";
-  progressMsg.style.transform = "translate(-50%, -50%)";
-  progressMsg.style.background = "rgba(0, 0, 0, 0.8)";
-  progressMsg.style.color = "white";
-  progressMsg.style.padding = "20px";
-  progressMsg.style.borderRadius = "10px";
-  progressMsg.style.zIndex = "9999";
-  progressMsg.textContent = `Trwa generowanie ${selectedMockups.length} obrazów, proszę czekać...`;
-  document.body.appendChild(progressMsg);
-
-  // Zapisz aktualny mockup, aby przywrócić go po zakończeniu
-  const originalMockup = {
-    path: currentMockupFile,
-    name: currentMockupName,
-    id: currentMockupId,
-    model: currentMockupModel,
-  };
-
-  // Dla każdego wybranego mockupu
-  for (let i = 0; i < selectedMockups.length; i++) {
-    const mockup = selectedMockups[i];
-    progressMsg.textContent = `Generowanie obrazu ${i + 1} z ${
-      selectedMockups.length
-    }...`;
-
-    // Zmień mockup
-    await new Promise((resolve) => {
-      changeMockup(mockup.path, mockup.name, mockup.id, mockup.model);
-      // Daj czas na załadowanie mockupu
-      setTimeout(resolve, 200);
     });
 
-    // Pobierz obraz - używając modelu i nazwy mockupu w nazwie pliku
-    const fileName = `${mockup.model || "Inne"}_${mockup.name.replace(
-      /\s+/g,
-      "_"
-    )}_${i + 1}.png`;
-    await generateAndDownloadImage(fileName);
-  }
-
-  // Przywróć oryginalny mockup
-  changeMockup(
-    originalMockup.path,
-    originalMockup.name,
-    originalMockup.id,
-    originalMockup.model
-  );
-
-  // Usuń komunikat o postępie
-  document.body.removeChild(progressMsg);
-
-  alert(`Pomyślnie wygenerowano ${selectedMockups.length} obrazów!`);
-}
-
-// Obsługa przycisku pobierania
-downloadButton.addEventListener("click", function () {
-  if (!userImageLoaded) {
-    alert("Najpierw wgraj zdjęcie!");
-    return;
-  }
-
-  // Pokaż dialog wyboru formatu i rozmiaru
-  showDownloadOptions();
-});
-
-// Funkcja wyświetlająca dialog z opcjami pobierania
-function showDownloadOptions() {
-  // Tworzymy dialog
-  const dialogOverlay = document.createElement("div");
-  dialogOverlay.style.position = "fixed";
-  dialogOverlay.style.top = "0";
-  dialogOverlay.style.left = "0";
-  dialogOverlay.style.width = "100%";
-  dialogOverlay.style.height = "100%";
-  dialogOverlay.style.backgroundColor = "rgba(0, 0, 0, 0.5)";
-  dialogOverlay.style.display = "flex";
-  dialogOverlay.style.justifyContent = "center";
-  dialogOverlay.style.alignItems = "center";
-  dialogOverlay.style.zIndex = "9999";
-
-  const dialogBox = document.createElement("div");
-  dialogBox.style.backgroundColor = "white";
-  dialogBox.style.padding = "20px";
-  dialogBox.style.borderRadius = "10px";
-  dialogBox.style.width = "300px";
-  dialogBox.style.boxShadow = "0 2px 10px rgba(0, 0, 0, 0.2)";
-
-  dialogBox.innerHTML = `
-    <h3 style="margin-top: 0; text-align: center;">Opcje pobierania</h3>
-    
-    <div style="margin-bottom: 15px;">
-      <label style="display: block; margin-bottom: 5px; font-weight: bold;">Format pliku:</label>
-      <select id="format-select" style="width: 100%; padding: 8px; border-radius: 4px; border: 1px solid #ddd;">
-        <option value="png">PNG</option>
-        <option value="jpg">JPG</option>
-      </select>
-    </div>
-    
-    <div style="margin-bottom: 15px;">
-      <label style="display: block; margin-bottom: 5px; font-weight: bold;">Rozmiar:</label>
-      <select id="size-select" style="width: 100%; padding: 8px; border-radius: 4px; border: 1px solid #ddd;">
-        <option value="1200">1200 x 1200 px</option>
-        <option value="1000">1000 x 1000 px</option>
-        <option value="800">800 x 800 px</option>
-        <option value="600">600 x 600 px</option>
-      </select>
-    </div>
-    
-    <div style="display: flex; justify-content: space-between; margin-top: 20px;">
-      <button id="cancel-download" style="padding: 8px 15px; background-color: #e74c3c; color: white; border: none; border-radius: 4px; cursor: pointer;">Anuluj</button>
-      <button id="confirm-download" style="padding: 8px 15px; background-color: #27ae60; color: white; border: none; border-radius: 4px; cursor: pointer;">Pobierz</button>
-    </div>
-  `;
-
-  dialogOverlay.appendChild(dialogBox);
-  document.body.appendChild(dialogOverlay);
-
-  // Obsługa przycisków
-  document
-    .getElementById("cancel-download")
-    .addEventListener("click", function () {
-      document.body.removeChild(dialogOverlay);
+    document.addEventListener("mockupChanged", function (e) {
+      // Wczytaj parametry dla nowego mockupu
+      if (UserImage.isImageLoaded()) {
+        const params = Storage.loadMockupParameters(e.detail.mockupId);
+        Transformations.loadTransformationParams(params);
+      }
     });
 
-  document
-    .getElementById("confirm-download")
-    .addEventListener("click", function () {
-      const format = document.getElementById("format-select").value;
-      const size = document.getElementById("size-select").value;
-
-      // Usuń dialog
-      document.body.removeChild(dialogOverlay);
-
-      // Generuj i pobierz obraz, używając modelu i nazwy mockupu
-      const sanitizedName = currentMockupModel.replace(/\s+/g, "_");
-      const modelPrefix = currentMockupModel ? `${currentMockupModel}_` : "";
-      const fileName = `${sanitizedName}_${size}x${size}.${format}`;
-      generateAndDownloadImage(fileName, format, parseInt(size));
+    // Obsługa załadowania obrazu użytkownika
+    document.addEventListener("userImageLoaded", function () {
+      // Wczytaj parametry dla aktualnego mockupu
+      const currentMockup = Mockups.getCurrentMockup();
+      const params = Storage.loadMockupParameters(currentMockup.id);
+      Transformations.loadTransformationParams(params);
     });
-}
 
-async function generateAndDownloadImage(
-  fileName = "projekt-etui.png",
-  format = "png",
-  size = 1200
-) {
-  const progressMsg = document.createElement("div");
-  progressMsg.className = "progress-message";
-  progressMsg.textContent = "Trwa generowanie obrazu, proszę czekać...";
-  document.body.appendChild(progressMsg);
+    // Obsługa zmian transformacji
+    document.addEventListener("transformChange", function (e) {
+      const state = Transformations.getState();
 
-  return new Promise((resolve) => {
-    setTimeout(async function () {
-      try {
-        const canvas = document.createElement("canvas");
-        canvas.width = size;
-        canvas.height = size;
-        const ctx = canvas.getContext("2d");
-
-        // Używamy wybranego koloru tła zamiast białego
-        ctx.fillStyle = currentBackgroundColor;
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-        const mockupImg = new Image();
-        const userImg = new Image();
-
-        let imagesLoaded = 0;
-        let hasError = false;
-
-        function handleImageError(message) {
-          hasError = true;
-          console.error(message);
-          document.body.removeChild(progressMsg);
-          alert("Błąd: " + message);
-          resolve(false);
-        }
-
-        function drawAndDownload() {
-          if (hasError) return resolve(false);
-
-          try {
-            const mockupScaleFactor = Math.min(
-              size / mockupImg.naturalWidth,
-              size / mockupImg.naturalHeight
-            );
-
-            const drawWidth = mockupImg.naturalWidth * mockupScaleFactor;
-            const drawHeight = mockupImg.naturalHeight * mockupScaleFactor;
-
-            const mockupX = (canvas.width - drawWidth) / 2;
-            const mockupY = (canvas.height - drawHeight) / 2;
-
-            const imageOnTop = parseInt(imagePreview.style.zIndex || "5") >= 10;
-
-            if (imageOnTop) {
-              ctx.drawImage(mockupImg, mockupX, mockupY, drawWidth, drawHeight);
-              drawUserImage();
-            } else {
-              drawUserImage();
-              ctx.drawImage(mockupImg, mockupX, mockupY, drawWidth, drawHeight);
-            }
-
-            function drawUserImage() {
-              const canvasCenterX = canvas.width / 2;
-              const canvasCenterY = canvas.height / 2;
-
-              // Sprawdź, czy aplikacja używa kalibracji z panelu kalibracji
-              const useCalibration = typeof calibration !== "undefined";
-
-              // Współczynniki kalibracji
-              const X_POSITION_FACTOR = useCalibration
-                ? calibration.xPositionFactor
-                : 1.65;
-              const Y_POSITION_FACTOR = useCalibration
-                ? calibration.yPositionFactor
-                : 1.65;
-              const ZOOM_FACTOR = useCalibration
-                ? calibration.zoomFactor
-                : 0.64;
-
-              // Calculate scaled position values
-              const scaledX = currentX * mockupScaleFactor * X_POSITION_FACTOR;
-              const scaledY = currentY * mockupScaleFactor * Y_POSITION_FACTOR;
-
-              const userImageX = canvasCenterX + scaledX;
-              const userImageY = canvasCenterY + scaledY;
-
-              ctx.save();
-              ctx.translate(userImageX, userImageY);
-              ctx.rotate((currentRotation * Math.PI) / 180);
-
-              // Use the separate zoom factor for scaling
-              const scaledZoom =
-                (currentZoom / 100) * mockupScaleFactor * ZOOM_FACTOR;
-              ctx.scale(scaledZoom, scaledZoom);
-
-              const userImgWidth = userImg.naturalWidth;
-              const userImgHeight = userImg.naturalHeight;
-              ctx.drawImage(userImg, -userImgWidth / 2, -userImgHeight / 2);
-
-              ctx.restore();
-            }
-
-            if (canvas.toBlob) {
-              const mimeType = format === "jpg" ? "image/jpeg" : "image/png";
-              const quality = format === "jpg" ? 0.9 : undefined;
-
-              canvas.toBlob(
-                function (blob) {
-                  downloadUsingBlob(blob);
-                },
-                mimeType,
-                quality
-              );
-            } else {
-              const dataURL = canvas.toDataURL(
-                format === "jpg" ? "image/jpeg" : "image/png"
-              );
-              downloadUsingDataURL(dataURL);
-            }
-          } catch (e) {
-            console.error("Błąd przy rysowaniu:", e);
-            document.body.removeChild(progressMsg);
-            alert("Wystąpił błąd podczas renderowania obrazu: " + e.message);
-            resolve(false);
-          }
-        }
-
-        function downloadUsingBlob(blob) {
-          try {
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement("a");
-            a.href = url;
-            a.download = fileName;
-            document.body.appendChild(a);
-            a.click();
-
-            setTimeout(function () {
-              document.body.removeChild(a);
-              URL.revokeObjectURL(url);
-              document.body.removeChild(progressMsg);
-              resolve(true);
-            }, 100);
-          } catch (e) {
-            console.error("Błąd przy pobieraniu (blob):", e);
-            document.body.removeChild(progressMsg);
-            alert("Wystąpił błąd podczas pobierania obrazu: " + e.message);
-            resolve(false);
-          }
-        }
-
-        function downloadUsingDataURL(dataURL) {
-          try {
-            const a = document.createElement("a");
-            a.href = dataURL;
-            a.download = fileName;
-            document.body.appendChild(a);
-            a.click();
-
-            setTimeout(function () {
-              document.body.removeChild(a);
-              document.body.removeChild(progressMsg);
-              resolve(true);
-            }, 100);
-          } catch (e) {
-            console.error("Błąd przy pobieraniu (dataURL):", e);
-            document.body.removeChild(progressMsg);
-            alert("Wystąpił błąd podczas pobierania obrazu: " + e.message);
-            resolve(false);
-          }
-        }
-
-        mockupImg.onerror = function () {
-          handleImageError(
-            "Nie można załadować obrazu mockupu: " + mockupImage.src
-          );
-        };
-
-        userImg.onerror = function () {
-          handleImageError(
-            "Nie można załadować obrazu użytkownika: " + imagePreview.src
-          );
-        };
-
-        mockupImg.onload = function () {
-          imagesLoaded++;
-          if (imagesLoaded === 2) drawAndDownload();
-        };
-
-        userImg.onload = function () {
-          imagesLoaded++;
-          if (imagesLoaded === 2) drawAndDownload();
-        };
-
-        mockupImg.crossOrigin = "Anonymous";
-        userImg.crossOrigin = "Anonymous";
-        const timestamp = new Date().getTime();
-        mockupImg.src = mockupImage.src + "?t=" + timestamp;
-        userImg.src = imagePreview.src;
-
-        setTimeout(function () {
-          if (imagesLoaded < 2 && !hasError) {
-            handleImageError("Przekroczono limit czasu ładowania obrazów");
-          }
-        }, 10000);
-      } catch (e) {
-        console.error("Błąd generowania obrazu:", e);
-        document.body.removeChild(progressMsg);
-        alert("Wystąpił błąd podczas generowania obrazu: " + e.message);
-        resolve(false);
+      switch (e.detail.type) {
+        case "rotation":
+          Transformations.rotateImage(e.detail.value - state.currentRotation);
+          break;
+        case "zoom":
+          Transformations.zoomImage(e.detail.value - state.currentZoom);
+          break;
+        case "positionX":
+          Transformations.moveImage(e.detail.value, state.currentY);
+          break;
+        case "positionY":
+          Transformations.moveImage(state.currentX, e.detail.value);
+          break;
+        case "layerOrder":
+          Transformations.setLayerOrder(e.detail.value);
+          break;
+        case "backgroundColor":
+          Transformations.setBackgroundColor(e.detail.value);
+          break;
       }
-    }, 100);
-  });
-}
 
-function centerImage() {
-  currentX = 0;
-  currentY = 0;
+      // Zapisz parametry po zmianie
+      const currentMockup = Mockups.getCurrentMockup();
+      if (currentMockup.id && UserImage.isImageLoaded()) {
+        Storage.saveCurrentMockupParameters(
+          currentMockup.id,
+          Transformations.getState()
+        );
+      }
+    });
 
-  // Aktualizacja wartości suwaków
-  moveXSlider.value = currentX;
-  moveYSlider.value = currentY;
-  moveXValue.textContent = currentX;
-  moveYValue.textContent = currentY;
-  updateTransform();
-}
+    // Obsługa resetowania transformacji
+    document.addEventListener("resetTransformations", function () {
+      Transformations.resetTransformations();
 
-// Aktualizacja transformacji
-function updateTransform() {
-  imagePreview.style.transform = `translate(calc(-50% + ${currentX}px), calc(-50% + ${currentY}px)) rotate(${currentRotation}deg) scale(${
-    currentZoom / 100
-  })`;
-}
+      // Zapisz parametry po resecie
+      const currentMockup = Mockups.getCurrentMockup();
+      if (currentMockup.id && UserImage.isImageLoaded()) {
+        Storage.saveCurrentMockupParameters(
+          currentMockup.id,
+          Transformations.getState()
+        );
+      }
+    });
 
-// Funkcja zmieniająca mockup
-function changeMockup(mockupPath, mockupName, mockupId, mockupModel) {
-  // Save current mockup parameters before changing
-  saveCurrentMockupParameters();
+    // Obsługa centrowania obrazu
+    document.addEventListener("centerImage", function () {
+      Transformations.centerImage();
 
-  // Change mockup as before
-  currentMockupFile = mockupPath;
-  currentMockupName = mockupName || "Mockup";
-  currentMockupId = mockupId || 0;
-  currentMockupModel = mockupModel || "Inne";
+      // Zapisz parametry po centrowaniu
+      const currentMockup = Mockups.getCurrentMockup();
+      if (currentMockup.id && UserImage.isImageLoaded()) {
+        Storage.saveCurrentMockupParameters(
+          currentMockup.id,
+          Transformations.getState()
+        );
+      }
+    });
 
-  // Preserve control visibility state
-  const controlsWereVisible = controls.style.display === "block";
-  const instructionsWereVisible = dragInstruction.style.display === "block";
-
-  mockupImage.src = mockupPath;
-
-  // Error handling
-  mockupImage.onerror = function () {
-    console.error(`Nie można załadować mockupu: ${mockupPath}`);
-    alert(`Nie można załadować mockupu: ${mockupPath}. Używanie placeholdera.`);
-    mockupImage.src =
-      "https://via.placeholder.com/400x800/ffffff/000000?text=Mockup+Niedostępny";
-  };
-
-  // After mockup loaded, load its parameters
-  mockupImage.onload = function () {
-    // Load parameters for the new mockup
-    loadMockupParameters(currentMockupId);
-
-    // Restore control visibility
-    if (userImageLoaded) {
-      controls.style.display = "block";
-      dragInstruction.style.display = "block";
-    }
-  };
-
-  // Restore controls immediately if image is loaded
-  if (userImageLoaded) {
-    setTimeout(function () {
-      controls.style.display = "block";
-      dragInstruction.style.display = "block";
-    }, 50);
+    // Zapisz parametry przed zamknięciem strony
+    window.addEventListener("beforeunload", function () {
+      const currentMockup = Mockups.getCurrentMockup();
+      if (currentMockup.id && UserImage.isImageLoaded()) {
+        Storage.saveCurrentMockupParameters(
+          currentMockup.id,
+          Transformations.getState()
+        );
+      }
+    });
   }
-}
 
-// Resetowanie wszystkich transformacji
-function resetTransformations() {
-  currentX = 0;
-  currentY = 0;
-  currentRotation = 0;
-  currentZoom = 100;
-
-  rotateSlider.value = currentRotation;
-  rotateValue.textContent = currentRotation;
-
-  zoomSlider.value = currentZoom;
-  zoomValue.textContent = currentZoom;
-
-  // Aktualizacja suwaków pozycji
-  moveXSlider.value = currentX;
-  moveYSlider.value = currentY;
-  moveXValue.textContent = currentX;
-  moveYValue.textContent = currentY;
-
-  updateTransform();
-}
-
-// Funkcja skanująca dostępne mockupy
-async function scanMockups() {
-  try {
-    const response = await fetch("/api/mockups");
-    const data = await response.json();
-
-    if (data.success) {
-      // Zapamiętaj pełne dane mockupów, nie tylko ścieżki
-      mockupsData = data.mockups;
-      return data.mockups;
-    } else {
-      console.error("Error fetching mockups:", data.error);
-      return [];
-    }
-  } catch (error) {
-    console.error("Error scanning mockups:", error);
-    return [];
-  }
-}
-
-// Save parameters when page is about to be unloaded
-window.addEventListener("beforeunload", function () {
-  saveCurrentMockupParameters();
+  // Rozpocznij inicjalizację aplikacji
+  initializeApp();
 });
-
-// Inicjalizacja
-window.onload = async function () {
-  // Load saved parameters from localStorage
-  loadParametersFromLocalStorage();
-
-  // Domyślne ustawienie braku kontrolek przy starcie
-  controls.style.display = "none";
-  dragInstruction.style.display = "none";
-
-  // Skanuj dostępne mockupy
-  const availableMockups = await scanMockups();
-
-  // Generuj miniatury z grupowaniem według modelu
-  generateMockupThumbnails(availableMockups);
-
-  // Ustaw domyślny mockup jeśli istnieje
-  if (availableMockups.length > 0) {
-    changeMockup(
-      availableMockups[0].path,
-      availableMockups[0].name,
-      availableMockups[0].id,
-      availableMockups[0].model || "Inne"
-    );
-  }
-
-  const backgroundColorPicker = document.getElementById("background-color");
-  const colorValue = document.getElementById("color-value");
-  const resetColorButton = document.getElementById("reset-color");
-  const editorContainer = document.getElementById("editor-container");
-
-  backgroundColorPicker.addEventListener("input", function () {
-    currentBackgroundColor = this.value;
-    colorValue.textContent = currentBackgroundColor;
-    editorContainer.style.backgroundColor = currentBackgroundColor;
-    saveCurrentMockupParameters();
-  });
-
-  resetColorButton.addEventListener("click", function () {
-    currentBackgroundColor = "#FFFFFF";
-    backgroundColorPicker.value = currentBackgroundColor;
-    colorValue.textContent = currentBackgroundColor;
-    editorContainer.style.backgroundColor = currentBackgroundColor;
-    saveCurrentMockupParameters();
-  });
-
-  // Zaktualizuj funkcję saveCurrentMockupParameters, aby zapisywała również kolor tła:
-  function saveCurrentMockupParameters() {
-    if (currentMockupId && userImageLoaded) {
-      mockupParameters[currentMockupId] = {
-        rotation: currentRotation,
-        zoom: currentZoom,
-        positionX: currentX,
-        positionY: currentY,
-        layerFront: imagePreview.style.zIndex >= 10,
-        backgroundColor: currentBackgroundColor, // Dodajemy zapis koloru tła
-      };
-
-      // Save to localStorage for persistence
-      saveParametersToLocalStorage();
-    }
-  }
-
-  // Zaktualizuj funkcję loadMockupParameters, aby wczytywała kolor tła:
-  function loadMockupParameters(mockupId) {
-    if (mockupId && mockupParameters[mockupId] && userImageLoaded) {
-      const params = mockupParameters[mockupId];
-
-      // Apply saved parameters
-      currentRotation = params.rotation;
-      currentZoom = params.zoom;
-      currentX = params.positionX;
-      currentY = params.positionY;
-
-      // Wczytaj zapisany kolor tła, jeśli istnieje
-      if (params.backgroundColor) {
-        currentBackgroundColor = params.backgroundColor;
-        backgroundColorPicker.value = currentBackgroundColor;
-        colorValue.textContent = currentBackgroundColor;
-        editorContainer.style.backgroundColor = currentBackgroundColor;
-      }
-
-      // Update sliders to reflect loaded values
-      rotateSlider.value = currentRotation;
-      rotateValue.textContent = currentRotation;
-
-      zoomSlider.value = currentZoom;
-      zoomValue.textContent = currentZoom;
-
-      moveXSlider.value = currentX;
-      moveYSlider.value = currentY;
-      moveXValue.textContent = currentX;
-      moveYValue.textContent = currentY;
-
-      // Set layer order
-      if (params.layerFront) {
-        imagePreview.style.zIndex = "20";
-      } else {
-        imagePreview.style.zIndex = "5";
-      }
-
-      // Apply transformations
-      updateTransform();
-    } else {
-      // If no saved parameters, reset to defaults
-      resetTransformations();
-
-      // Resetuj również kolor tła
-      currentBackgroundColor = "#FFFFFF";
-      if (backgroundColorPicker) {
-        backgroundColorPicker.value = currentBackgroundColor;
-        colorValue.textContent = currentBackgroundColor;
-        editorContainer.style.backgroundColor = currentBackgroundColor;
-      }
-    }
-  }
-};
