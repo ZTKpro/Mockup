@@ -1,5 +1,6 @@
 /**
  * elements-manager.js - Module for managing multiple elements on a mockup
+ * Updated with fixed reset functionality
  */
 
 const ElementsManager = (function () {
@@ -498,6 +499,96 @@ const ElementsManager = (function () {
           );
           // Update the preview
           updateElementPreview(activeElementIndex);
+        }
+      }
+    });
+
+    // Add handler for resetTransformations event
+    document.addEventListener("resetTransformations", function () {
+      if (window.Debug) {
+        Debug.debug("ELEMENTS_MANAGER", "Handling resetTransformations event");
+      }
+
+      // Skip if no elements or no active element
+      if (elements.length === 0 || activeElementIndex === -1) return;
+
+      // Reset the active element's transformations to default values
+      const activeElement = elements[activeElementIndex];
+      if (activeElement) {
+        if (window.Debug) {
+          Debug.debug(
+            "ELEMENTS_MANAGER",
+            `Resetting element ID ${activeElement.id} transformations`
+          );
+        }
+
+        // Reset to default values from EditorConfig
+        activeElement.transformations.x = EditorConfig.defaults.positionX;
+        activeElement.transformations.y = EditorConfig.defaults.positionY;
+        activeElement.transformations.rotation = EditorConfig.defaults.rotation;
+        activeElement.transformations.zoom = EditorConfig.defaults.zoom;
+
+        // Update the preview
+        updateElementPreview(activeElementIndex);
+
+        // If Transformations module is available, sync its state with our element
+        if (window.Transformations) {
+          const transformState = Transformations.getState();
+
+          // Sync state
+          transformState.currentX = activeElement.transformations.x;
+          transformState.currentY = activeElement.transformations.y;
+          transformState.currentRotation =
+            activeElement.transformations.rotation;
+          transformState.currentZoom = activeElement.transformations.zoom;
+
+          // Apply transformations
+          Transformations.updateTransform();
+        }
+      }
+    });
+
+    // Also add handler for centerImage event
+    document.addEventListener("centerImage", function () {
+      if (window.Debug) {
+        Debug.debug("ELEMENTS_MANAGER", "Handling centerImage event");
+      }
+
+      // Skip if no elements or no active element
+      if (elements.length === 0 || activeElementIndex === -1) return;
+
+      // Center the active element
+      const activeElement = elements[activeElementIndex];
+      if (activeElement) {
+        if (window.Debug) {
+          Debug.debug(
+            "ELEMENTS_MANAGER",
+            `Centering element ID ${activeElement.id}`
+          );
+        }
+
+        // Set position to center (0,0)
+        activeElement.transformations.x = 0;
+        activeElement.transformations.y = 0;
+
+        // Update the preview
+        updateElementPreview(activeElementIndex);
+
+        // If Transformations module is available, sync its state with our element
+        if (window.Transformations) {
+          const transformState = Transformations.getState();
+
+          // Sync state
+          transformState.currentX = activeElement.transformations.x;
+          transformState.currentY = activeElement.transformations.y;
+
+          // Apply transformations
+          Transformations.updateTransform();
+
+          // Update UI controls
+          if (window.UI) {
+            UI.updateControlsFromState(transformState);
+          }
         }
       }
     });

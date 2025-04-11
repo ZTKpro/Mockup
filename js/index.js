@@ -288,31 +288,43 @@ function setupEventListeners() {
   // Handle transformation reset
   document.addEventListener("resetTransformations", function () {
     if (window.Debug) {
-      Debug.debug("MAIN:EVENT", "resetTransformations event");
+      Debug.debug("ELEMENTS_MANAGER", "Handling resetTransformations event");
     }
 
-    if (window.Transformations) {
-      Transformations.resetTransformations();
-    }
+    // Skip if no elements or no active element
+    if (elements.length === 0 || activeElementIndex === -1) return;
 
-    // Save parameters after reset
-    if (
-      window.Mockups &&
-      window.Storage &&
-      window.UserImage &&
-      window.Transformations
-    ) {
-      const currentMockup = Mockups.getCurrentMockup();
-      if (currentMockup.id && UserImage.isImageLoaded()) {
-        if (window.Debug) {
-          Debug.debug("MAIN", "Saving parameters after reset", {
-            mockupId: currentMockup.id,
-          });
-        }
-        Storage.saveCurrentMockupParameters(
-          currentMockup.id,
-          Transformations.getState()
+    // Reset the active element's transformations to default values
+    const activeElement = elements[activeElementIndex];
+    if (activeElement) {
+      if (window.Debug) {
+        Debug.debug(
+          "ELEMENTS_MANAGER",
+          `Resetting element ID ${activeElement.id} transformations`
         );
+      }
+
+      // Reset to default values from EditorConfig
+      activeElement.transformations.x = EditorConfig.defaults.positionX;
+      activeElement.transformations.y = EditorConfig.defaults.positionY;
+      activeElement.transformations.rotation = EditorConfig.defaults.rotation;
+      activeElement.transformations.zoom = EditorConfig.defaults.zoom;
+
+      // Update the preview
+      updateElementPreview(activeElementIndex);
+
+      // If Transformations module is available, sync its state with our element
+      if (window.Transformations) {
+        const transformState = Transformations.getState();
+
+        // Sync state
+        transformState.currentX = activeElement.transformations.x;
+        transformState.currentY = activeElement.transformations.y;
+        transformState.currentRotation = activeElement.transformations.rotation;
+        transformState.currentZoom = activeElement.transformations.zoom;
+
+        // Apply transformations
+        Transformations.updateTransform();
       }
     }
   });

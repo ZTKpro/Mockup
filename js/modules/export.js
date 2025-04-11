@@ -1,6 +1,6 @@
 /**
  * export.js - Module for exporting and downloading images
- * Modified to support multiple elements on a mockup
+ * Modified to support multiple elements on a mockup and standardized positioning
  */
 
 const Export = (function () {
@@ -12,7 +12,10 @@ const Export = (function () {
   // Constant zoom factor for consistent scaling across devices
   const ABSOLUTE_ZOOM_FACTOR = 0.015;
 
-  // Reference size for which ABSOLUTE_ZOOM_FACTOR works correctly
+  // NEW: Constants for standardized position scaling
+  const ABSOLUTE_POSITION_FACTOR = 0.0017; // Scale factor for position coordinates
+
+  // Reference size for which scaling factors work correctly
   const REFERENCE_SIZE = 1200;
 
   /**
@@ -368,19 +371,25 @@ const Export = (function () {
                   const canvasCenterX = size / 2;
                   const canvasCenterY = size / 2;
 
-                  // Scale position according to mockup scaling
-                  const scaledX = Math.round(
-                    transformState.currentX * mockupScaleFactor
-                  );
-                  const scaledY = Math.round(
-                    transformState.currentY * mockupScaleFactor
-                  );
+                  // Calculate size scaling ratio based on output size
+                  const sizeScalingRatio = size / REFERENCE_SIZE;
+
+                  // NEW: Apply standardized position scaling with ABSOLUTE_POSITION_FACTOR
+                  const scaledX =
+                    transformState.currentX *
+                    ABSOLUTE_POSITION_FACTOR *
+                    sizeScalingRatio *
+                    size;
+                  const scaledY =
+                    transformState.currentY *
+                    ABSOLUTE_POSITION_FACTOR *
+                    sizeScalingRatio *
+                    size;
 
                   const userImageX = canvasCenterX + scaledX;
                   const userImageY = canvasCenterY + scaledY;
 
                   // Calculate zoom factor based on output size
-                  const sizeScalingRatio = size / REFERENCE_SIZE;
                   const absoluteZoom =
                     transformState.currentZoom *
                     ABSOLUTE_ZOOM_FACTOR *
@@ -499,9 +508,17 @@ const Export = (function () {
                 const element = layer.data;
                 const transform = element.transformations;
 
-                // Scale position according to mockup scaling
-                const scaledX = Math.round(transform.x * mockupScaleFactor);
-                const scaledY = Math.round(transform.y * mockupScaleFactor);
+                // NEW: Apply standardized position scaling with ABSOLUTE_POSITION_FACTOR
+                const scaledX =
+                  transform.x *
+                  ABSOLUTE_POSITION_FACTOR *
+                  sizeScalingRatio *
+                  size;
+                const scaledY =
+                  transform.y *
+                  ABSOLUTE_POSITION_FACTOR *
+                  sizeScalingRatio *
+                  size;
 
                 const elementX = canvasCenterX + scaledX;
                 const elementY = canvasCenterY + scaledY;
