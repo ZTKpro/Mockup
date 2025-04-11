@@ -1,5 +1,6 @@
 /**
  * transformations.js - Plik zawierający funkcje transformacji obrazu
+ * Zmodyfikowany dla jednolitego powiększenia
  */
 
 const Transformations = (function () {
@@ -34,11 +35,12 @@ const Transformations = (function () {
       });
     }
 
-    Elements.imagePreview.style.transform = `translate(calc(-50% + ${
-      state.currentX
-    }px), calc(-50% + ${state.currentY}px)) rotate(${
-      state.currentRotation
-    }deg) scale(${state.currentZoom / 100})`;
+    // Używamy jednolitego, liniowego współczynnika powiększenia
+    // Stała wartość 0.01 oznacza, że każdy 1% powiększenia to 0.01 jednostki skali
+    // Dzięki temu powiększenie 30% będzie dokładnie takie samo na każdym urządzeniu
+    const linearZoomFactor = state.currentZoom * 0.01;
+
+    Elements.imagePreview.style.transform = `translate(calc(-50% + ${state.currentX}px), calc(-50% + ${state.currentY}px)) rotate(${state.currentRotation}deg) scale(${linearZoomFactor})`;
   }
 
   /**

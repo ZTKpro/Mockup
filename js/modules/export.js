@@ -1,5 +1,6 @@
 /**
  * export.js - Plik zawierający funkcje do eksportu i pobierania obrazów
+ * Zmodyfikowany, aby zapewnić liniowe, spójne powiększenie
  */
 
 const Export = (function () {
@@ -7,6 +8,10 @@ const Export = (function () {
   if (window.Debug) {
     Debug.info("EXPORT", "Inicjalizacja modułu eksportu");
   }
+
+  // Stały współczynnik powiększenia dla wszystkich urządzeń
+  // Ta wartość jest używana jako mnożnik dla procentowej wartości powiększenia
+  const ABSOLUTE_ZOOM_FACTOR = 0.015; // 1% powiększenia = 0.01 współczynnika skali
 
   /**
    * Pokazuje dialog z opcjami pobierania
@@ -121,10 +126,15 @@ const Export = (function () {
     return new Promise((resolve) => {
       setTimeout(async function () {
         try {
+          // Tworzymy canvas o określonym rozmiarze
           const canvas = document.createElement("canvas");
           canvas.width = size;
           canvas.height = size;
+
           const ctx = canvas.getContext("2d");
+          // Ustawienia dla lepszej jakości
+          ctx.imageSmoothingEnabled = true;
+          ctx.imageSmoothingQuality = "high";
 
           // Użyj wybranego koloru tła
           const transformState = Transformations.getState();
@@ -164,6 +174,7 @@ const Export = (function () {
                 Debug.debug("EXPORT", "Rysowanie na canvas");
               }
 
+              // Obliczamy podstawowy współczynnik skalowania mockupu
               const mockupScaleFactor = Math.min(
                 size / mockupImg.naturalWidth,
                 size / mockupImg.naturalHeight
@@ -217,39 +228,37 @@ const Export = (function () {
                 const canvasCenterX = canvas.width / 2;
                 const canvasCenterY = canvas.height / 2;
 
-                // Wczytaj parametry kalibracji
-                const calibration = window.calibration || {
-                  xPositionFactor:
-                    EditorConfig.calibration.defaultXPositionFactor,
-                  yPositionFactor:
-                    EditorConfig.calibration.defaultYPositionFactor,
-                  zoomFactor: EditorConfig.calibration.defaultZoomFactor,
-                };
+                // KLUCZOWA ZMIANA: Stosujemy liniowy, stały współczynnik powiększenia
+                // Niezależnie od urządzenia, wartość powiększenia 30% zawsze da ten sam rozmiar
 
-                // Oblicz skalowane wartości pozycji
-                const scaledX =
-                  transformState.currentX *
-                  mockupScaleFactor *
-                  calibration.xPositionFactor;
-                const scaledY =
-                  transformState.currentY *
-                  mockupScaleFactor *
-                  calibration.yPositionFactor;
+                // Najpierw obliczamy pozycję z uwzględnieniem skalowania mockupu
+                const scaledX = Math.round(
+                  transformState.currentX * mockupScaleFactor
+                );
+                const scaledY = Math.round(
+                  transformState.currentY * mockupScaleFactor
+                );
 
                 const userImageX = canvasCenterX + scaledX;
                 const userImageY = canvasCenterY + scaledY;
+
+                // Wartość powiększenia jest teraz bezpośrednio powiązana z procentem
+                // Przykład: 30% powiększenia = 0.3 współczynnika skali
+                const absoluteZoom =
+                  transformState.currentZoom * ABSOLUTE_ZOOM_FACTOR;
 
                 if (window.Debug) {
                   Debug.debug(
                     "EXPORT",
                     "Parametry transformacji obrazu użytkownika",
                     {
-                      calibration,
                       scaledX,
                       scaledY,
                       userImageX,
                       userImageY,
                       rotation: transformState.currentRotation,
+                      currentZoomPercent: transformState.currentZoom,
+                      absoluteZoom: absoluteZoom,
                     }
                   );
                 }
@@ -258,12 +267,8 @@ const Export = (function () {
                 ctx.translate(userImageX, userImageY);
                 ctx.rotate((transformState.currentRotation * Math.PI) / 180);
 
-                // Skalowanie z wykorzystaniem współczynnika zoom
-                const scaledZoom =
-                  (transformState.currentZoom / 100) *
-                  mockupScaleFactor *
-                  calibration.zoomFactor;
-                ctx.scale(scaledZoom, scaledZoom);
+                // Używamy bezpośredniego, liniowego współczynnika powiększenia
+                ctx.scale(absoluteZoom, absoluteZoom);
 
                 const userImgWidth = userImg.naturalWidth;
                 const userImgHeight = userImg.naturalHeight;

@@ -268,28 +268,6 @@ const UI = (function () {
       document.dispatchEvent(centerEvent);
     });
 
-    // Przyciski warstw
-    Elements.layerFrontButton.addEventListener("click", function () {
-      if (window.Debug) {
-        Debug.info("UI", "Kliknięto przycisk 'Obraz na wierzchu'");
-      }
-
-      const layerEvent = new CustomEvent("transformChange", {
-        detail: { type: "layerOrder", value: true },
-      });
-      document.dispatchEvent(layerEvent);
-    });
-
-    Elements.layerBackButton.addEventListener("click", function () {
-      if (window.Debug) {
-        Debug.info("UI", "Kliknięto przycisk 'Obraz pod etui'");
-      }
-
-      const layerEvent = new CustomEvent("transformChange", {
-        detail: { type: "layerOrder", value: false },
-      });
-      document.dispatchEvent(layerEvent);
-    });
   }
 
   /**

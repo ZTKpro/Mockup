@@ -37,8 +37,6 @@ const Elements = {
   downloadButton: document.getElementById("download-button"),
   downloadSelectedMockups: document.getElementById("download-selected-mockups"),
   
-  layerFrontButton: document.getElementById("layer-front"),
-  layerBackButton: document.getElementById("layer-back"),
   
   // Elementy związane z tłem
   backgroundColorPicker: document.getElementById("background-color"),

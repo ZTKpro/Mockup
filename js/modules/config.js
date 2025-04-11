@@ -38,7 +38,7 @@ const EditorConfig = {
   calibration: {
     defaultXPositionFactor: 1,
     defaultYPositionFactor: 1,
-    defaultZoomFactor: 0.64,
+    defaultZoomFactor: 2,
   },
 };
 

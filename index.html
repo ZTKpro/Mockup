@@ -40,12 +40,6 @@
           </div>
 
           <div class="controls" id="controls">
-            <div class="layer-controls">
-              <label>Kolejność warstw:</label>
-              <button id="layer-front">Obraz na wierzchu</button>
-              <button id="layer-back">Obraz pod etui</button>
-            </div>
-
             <div class="control-group">
               <label for="rotate-slider"
                 >Obrót: <span id="rotate-value">0</span>°</label
@@ -163,6 +157,25 @@
       </div>
 
       <div class="calibration-section">
+        <div class="calibration-section-title">
+          Tryb jednolitego renderowania
+        </div>
+        <div class="calibration-option">
+          <label class="toggle-switch">
+            <input type="checkbox" id="standardized-mode" checked />
+            <span class="toggle-slider"></span>
+          </label>
+          <span class="calibration-option-label"
+            >Używaj jednolitych wartości (zalecane)</span
+          >
+        </div>
+        <p style="font-size: 12px; color: #666; margin-top: 5px">
+          Ta opcja zapewnia identyczne renderowanie na wszystkich urządzeniach.
+          Zalecane jest pozostawienie jej włączonej.
+        </p>
+      </div>
+
+      <div class="calibration-section">
         <div class="calibration-section-title">Współczynniki pozycji</div>
 
         <div class="calibration-factor-container">
@@ -175,6 +188,7 @@
             min="0.1"
             max="5.0"
             value="1"
+            disabled
           />
           <span class="calibration-factor-value" id="x-position-factor-value"
             >1</span
@@ -191,6 +205,7 @@
             min="0.1"
             max="5.0"
             value="1"
+            disabled
           />
           <span class="calibration-factor-value" id="y-position-factor-value"
             >1</span
@@ -209,10 +224,11 @@
             step="0.01"
             min="0.1"
             max="5.0"
-            value="1.5"
+            value="0.64"
+            disabled
           />
           <span class="calibration-factor-value" id="zoom-factor-value"
-            >1.5</span
+            >0.64</span
           >
         </div>
       </div>
@@ -225,6 +241,7 @@
             data-x="1.0"
             data-y="1.0"
             data-zoom="0.5"
+            disabled
           >
             Małe
           </button>
@@ -233,6 +250,7 @@
             data-x="1"
             data-y="1"
             data-zoom="0.64"
+            disabled
           >
             Domyślne
           </button>
@@ -241,6 +259,7 @@
             data-x="2.0"
             data-y="2.0"
             data-zoom="0.8"
+            disabled
           >
             Duże
           </button>

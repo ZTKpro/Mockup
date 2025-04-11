@@ -1,11 +1,12 @@
 /**
  * calibration.js - Module for handling image generation calibration
+ * Zmodyfikowany, aby zapewnić spójne renderowanie na różnych urządzeniach
  */
 
 const Calibration = (function () {
   // Debug logging if available
   if (window.Debug) {
-    Debug.info("CALIBRATION", "Initializing calibration module");
+    Debug.info("CALIBRATION", "Inicjalizacja modułu kalibracji");
   }
 
   // DOM element references
@@ -21,27 +22,33 @@ const Calibration = (function () {
   let yPositionFactorValue;
   let zoomFactorValue;
   let presetButtons;
+  let standardizedModeCheckbox;
 
-  // Default calibration values
+  // Standardowe współczynniki kalibracji (te same co w export.js)
+  const STANDARD_CALIBRATION = {
+    xPositionFactor: 1.0,
+    yPositionFactor: 1.0,
+    zoomFactor: 2,
+    baseDPI: 100,
+  };
+
+  // Default calibration values - now matched to standard
   const defaultCalibration = {
-    xPositionFactor: 1,
-    yPositionFactor: 1,
-    zoomFactor: 0.64,
+    xPositionFactor: STANDARD_CALIBRATION.xPositionFactor,
+    yPositionFactor: STANDARD_CALIBRATION.yPositionFactor,
+    zoomFactor: STANDARD_CALIBRATION.zoomFactor,
+    useStandardized: true, // Nowa opcja dla używania standardowych wartości
   };
 
   // Current calibration values
-  let calibration = {
-    xPositionFactor: 1,
-    yPositionFactor: 1,
-    zoomFactor: 0.64,
-  };
+  let calibration = { ...defaultCalibration };
 
   /**
    * Initialize the module and assign DOM element references
    */
   function init() {
     if (window.Debug) {
-      Debug.info("CALIBRATION", "Initializing DOM elements for calibration");
+      Debug.info("CALIBRATION", "Inicjalizacja elementów DOM dla kalibracji");
     }
 
     // Get DOM elements for calibration
@@ -55,6 +62,7 @@ const Calibration = (function () {
     xPositionFactor = document.getElementById("x-position-factor");
     yPositionFactor = document.getElementById("y-position-factor");
     zoomFactor = document.getElementById("zoom-factor");
+    standardizedModeCheckbox = document.getElementById("standardized-mode");
 
     // Get display value elements
     xPositionFactorValue = document.getElementById("x-position-factor-value");
@@ -66,21 +74,118 @@ const Calibration = (function () {
 
     if (!calibrationBubble || !calibrationPanel) {
       if (window.Debug) {
-        Debug.error("CALIBRATION", "Calibration panel elements not found", {
-          calibrationBubble: !!calibrationBubble,
-          calibrationPanel: !!calibrationPanel,
-        });
+        Debug.error(
+          "CALIBRATION",
+          "Elementy panelu kalibracji nie znalezione",
+          {
+            calibrationBubble: !!calibrationBubble,
+            calibrationPanel: !!calibrationPanel,
+          }
+        );
       }
-      console.error("Calibration panel elements not found");
+      console.error("Elementy panelu kalibracji nie znalezione");
       return;
     }
+
+    // Add standardized mode checkbox if not present
+    addStandardizedModeOption();
 
     setupEventListeners();
     loadCalibration();
     monkeyPatchGenerateAndDownloadImage();
 
     if (window.Debug) {
-      Debug.info("CALIBRATION", "Calibration module initialized successfully");
+      Debug.info("CALIBRATION", "Moduł kalibracji zainicjalizowany pomyślnie");
+    }
+  }
+
+  /**
+   * Add standardized mode option to the calibration panel
+   */
+  function addStandardizedModeOption() {
+    if (!standardizedModeCheckbox && calibrationPanel) {
+      // Create the container for standardized mode option
+      const standardizedSection = document.createElement("div");
+      standardizedSection.className = "calibration-section";
+      standardizedSection.innerHTML = `
+        <div class="calibration-section-title">Tryb jednolitego renderowania</div>
+        <div class="calibration-option">
+          <label class="toggle-switch">
+            <input type="checkbox" id="standardized-mode" checked>
+            <span class="toggle-slider"></span>
+          </label>
+          <span class="calibration-option-label">Używaj jednolitych wartości (zalecane)</span>
+        </div>
+        <p style="font-size: 12px; color: #666; margin-top: 5px;">
+          Ta opcja zapewnia identyczne renderowanie na wszystkich urządzeniach.
+          Zalecane jest pozostawienie jej włączonej.
+        </p>
+      `;
+
+      // Insert before the actions section
+      const actionsSection = calibrationPanel.querySelector(
+        ".calibration-actions"
+      );
+      if (actionsSection) {
+        calibrationPanel.insertBefore(standardizedSection, actionsSection);
+        standardizedModeCheckbox = document.getElementById("standardized-mode");
+
+        // Add event listener for the checkbox
+        if (standardizedModeCheckbox) {
+          standardizedModeCheckbox.addEventListener("change", function () {
+            const isChecked = this.checked;
+
+            // Enable/disable calibration inputs based on standardized mode
+            toggleCalibrationInputs(!isChecked);
+
+            if (window.Debug) {
+              Debug.debug(
+                "CALIBRATION",
+                `Tryb jednolitego renderowania: ${
+                  isChecked ? "włączony" : "wyłączony"
+                }`
+              );
+            }
+          });
+        }
+      }
+    }
+  }
+
+  /**
+   * Toggle calibration inputs enabled/disabled state
+   * @param {boolean} enabled - Whether inputs should be enabled
+   */
+  function toggleCalibrationInputs(enabled) {
+    const inputs = [xPositionFactor, yPositionFactor, zoomFactor];
+    const presetButtons = document.querySelectorAll(
+      ".calibration-preset-button"
+    );
+
+    inputs.forEach((input) => {
+      if (input) input.disabled = !enabled;
+    });
+
+    presetButtons.forEach((button) => {
+      button.disabled = !enabled;
+    });
+
+    // Update the appearance
+    const factorContainers = document.querySelectorAll(
+      ".calibration-factor-container"
+    );
+    factorContainers.forEach((container) => {
+      if (enabled) {
+        container.style.opacity = "1";
+      } else {
+        container.style.opacity = "0.6";
+      }
+    });
+
+    // Update presets section
+    const presetsSection = document.querySelector(".calibration-presets");
+    if (presetsSection) {
+      presetsSection.style.opacity = enabled ? "1" : "0.6";
     }
   }
 
@@ -89,14 +194,17 @@ const Calibration = (function () {
    */
   function setupEventListeners() {
     if (window.Debug) {
-      Debug.debug("CALIBRATION", "Setting up calibration event listeners");
+      Debug.debug(
+        "CALIBRATION",
+        "Konfiguracja nasłuchiwaczy zdarzeń kalibracji"
+      );
     }
 
     // Open calibration panel
     if (calibrationBubble) {
       calibrationBubble.addEventListener("click", function () {
         if (window.Debug) {
-          Debug.debug("CALIBRATION", "Opening calibration panel");
+          Debug.debug("CALIBRATION", "Otwieranie panelu kalibracji");
         }
         calibrationPanel.classList.add("active");
       });
@@ -106,7 +214,7 @@ const Calibration = (function () {
     if (calibrationClose) {
       calibrationClose.addEventListener("click", function () {
         if (window.Debug) {
-          Debug.debug("CALIBRATION", "Closing calibration panel");
+          Debug.debug("CALIBRATION", "Zamykanie panelu kalibracji");
         }
         calibrationPanel.classList.remove("active");
       });
@@ -191,13 +299,18 @@ const Calibration = (function () {
    */
   function loadCalibration() {
     if (window.Debug) {
-      Debug.debug("CALIBRATION", "Loading calibration from localStorage");
+      Debug.debug("CALIBRATION", "Wczytywanie kalibracji z localStorage");
     }
 
     const savedCalibration = localStorage.getItem("imageCalibration");
     if (savedCalibration) {
       try {
         calibration = JSON.parse(savedCalibration);
+
+        // Add standardized mode if not present in saved calibration
+        if (calibration.useStandardized === undefined) {
+          calibration.useStandardized = true;
+        }
 
         // Update form fields
         if (xPositionFactor && yPositionFactor && zoomFactor) {
@@ -213,38 +326,46 @@ const Calibration = (function () {
           zoomFactorValue.textContent = calibration.zoomFactor;
         }
 
+        // Update standardized mode checkbox
+        if (standardizedModeCheckbox) {
+          standardizedModeCheckbox.checked = calibration.useStandardized;
+          toggleCalibrationInputs(!calibration.useStandardized);
+        }
+
         if (window.Debug) {
           Debug.debug(
             "CALIBRATION",
-            "Loaded saved calibration values",
+            "Wczytano zapisane wartości kalibracji",
             calibration
           );
         }
 
         // Make calibration globally available
-        window.calibration = calibration;
+        window.calibration = calibration.useStandardized
+          ? STANDARD_CALIBRATION
+          : calibration;
 
-        console.log("Loaded saved calibration values:", calibration);
+        console.log("Wczytano zapisane wartości kalibracji:", calibration);
       } catch (e) {
         if (window.Debug) {
-          Debug.error("CALIBRATION", "Error loading calibration", e);
+          Debug.error("CALIBRATION", "Błąd wczytywania kalibracji", e);
         }
-        console.error("Error loading calibration:", e);
+        console.error("Błąd wczytywania kalibracji:", e);
         resetToDefaultCalibration();
       }
     } else {
       if (window.Debug) {
         Debug.debug(
           "CALIBRATION",
-          "No saved calibration found, using defaults"
+          "Nie znaleziono zapisanej kalibracji, używanie domyślnych wartości"
         );
       }
 
       // Set default values
       calibration = { ...defaultCalibration };
 
-      // Make calibration globally available
-      window.calibration = calibration;
+      // Make calibration globally available - use standard values
+      window.calibration = STANDARD_CALIBRATION;
     }
   }
 
@@ -253,32 +374,39 @@ const Calibration = (function () {
    */
   function saveCalibration() {
     if (!xPositionFactor || !yPositionFactor || !zoomFactor) {
-      console.error("Calibration form elements not found");
+      console.error("Elementy formularza kalibracji nie znalezione");
       return;
     }
+
+    // Get standardized mode setting
+    const useStandardized = standardizedModeCheckbox
+      ? standardizedModeCheckbox.checked
+      : true;
 
     // Get values from form fields
     calibration.xPositionFactor = parseFloat(xPositionFactor.value);
     calibration.yPositionFactor = parseFloat(yPositionFactor.value);
     calibration.zoomFactor = parseFloat(zoomFactor.value);
+    calibration.useStandardized = useStandardized;
 
     if (window.Debug) {
-      Debug.info("CALIBRATION", "Saving calibration values", calibration);
+      Debug.info("CALIBRATION", "Zapisywanie wartości kalibracji", calibration);
     }
 
     // Save to localStorage
     localStorage.setItem("imageCalibration", JSON.stringify(calibration));
 
-    // Make calibration globally available
-    window.calibration = calibration;
+    // Make calibration globally available - respect standardized mode setting
+    window.calibration = useStandardized ? STANDARD_CALIBRATION : calibration;
 
-    console.log("Saved calibration values:", calibration);
+    console.log("Zapisano wartości kalibracji:", calibration);
+    console.log("Aktywne wartości kalibracji:", window.calibration);
 
     // Monkey patch image generation function
     monkeyPatchGenerateAndDownloadImage();
 
     // Show notification
-    showNotification("Calibration settings saved");
+    showNotification("Ustawienia kalibracji zapisane");
 
     // Close panel
     calibrationPanel.classList.remove("active");
@@ -291,13 +419,13 @@ const Calibration = (function () {
     if (window.Debug) {
       Debug.info(
         "CALIBRATION",
-        "Resetting to default calibration values",
+        "Reset do domyślnych wartości kalibracji",
         defaultCalibration
       );
     }
 
     if (!xPositionFactor || !yPositionFactor || !zoomFactor) {
-      console.error("Calibration form elements not found");
+      console.error("Elementy formularza kalibracji nie znalezione");
       return;
     }
 
@@ -305,6 +433,12 @@ const Calibration = (function () {
     xPositionFactor.value = defaultCalibration.xPositionFactor;
     yPositionFactor.value = defaultCalibration.yPositionFactor;
     zoomFactor.value = defaultCalibration.zoomFactor;
+
+    // Set standardized mode to true by default
+    if (standardizedModeCheckbox) {
+      standardizedModeCheckbox.checked = true;
+      toggleCalibrationInputs(false);
+    }
 
     // Update displayed values
     if (xPositionFactorValue && yPositionFactorValue && zoomFactorValue) {
@@ -326,17 +460,17 @@ const Calibration = (function () {
       if (window.Debug) {
         Debug.error(
           "CALIBRATION",
-          "generateAndDownloadImage function not found!"
+          "generateAndDownloadImage funkcja nie znaleziona!"
         );
       }
-      console.error("generateAndDownloadImage function not found!");
+      console.error("generateAndDownloadImage funkcja nie znaleziona!");
       return;
     }
 
     if (window.Debug) {
       Debug.debug(
         "CALIBRATION",
-        "Starting monkey patch of generateAndDownloadImage function"
+        "Rozpoczęcie zamiany funkcji generateAndDownloadImage"
       );
     }
 
@@ -348,59 +482,15 @@ const Calibration = (function () {
       if (window.Debug) {
         Debug.debug(
           "CALIBRATION",
-          "Saved original generateAndDownloadImage function"
+          "Zapisano oryginalną funkcję generateAndDownloadImage"
         );
       }
     }
 
-    // Get original function (either from global window or Export module)
-    const originalFn =
-      window.originalGenerateAndDownloadImage ||
-      window.Export.generateAndDownloadImage;
-
-    // Override function - use function in Export module if available
-    if (
-      window.Export &&
-      typeof window.Export.generateAndDownloadImage === "function"
-    ) {
-      window.Export.generateAndDownloadImage = async function (
-        fileName,
-        format,
-        size
-      ) {
-        // Ensure calibration is globally available
-        if (!window.calibration) {
-          window.calibration = calibration;
-        }
-        return originalFn.call(window.Export, fileName, format, size);
-      };
-
-      if (window.Debug) {
-        Debug.info(
-          "CALIBRATION",
-          "Overrode Export.generateAndDownloadImage function"
-        );
-      }
-    } else {
-      window.generateAndDownloadImage = async function (
-        fileName,
-        format,
-        size
-      ) {
-        // Ensure calibration is globally available
-        if (!window.calibration) {
-          window.calibration = calibration;
-        }
-        return originalFn(fileName, format, size);
-      };
-
-      if (window.Debug) {
-        Debug.info("CALIBRATION", "Overrode generateAndDownloadImage function");
-      }
-    }
-
+    // Override function is not needed if we use the modified export.js
+    // Calibration is now handled directly in export.js
     console.log(
-      "Overrode generateAndDownloadImage function with new calibration factors."
+      "Funkcja generateAndDownloadImage używa teraz ujednoliconych współczynników kalibracji."
     );
   }
 
@@ -410,7 +500,7 @@ const Calibration = (function () {
    */
   function showNotification(message) {
     if (window.Debug) {
-      Debug.debug("CALIBRATION", `Showing notification: ${message}`);
+      Debug.debug("CALIBRATION", `Pokazywanie powiadomienia: ${message}`);
     }
 
     const notification = document.createElement("div");
@@ -462,7 +552,12 @@ const Calibration = (function () {
     saveCalibration,
     resetToDefaultCalibration,
     getCalibration: function () {
-      return { ...calibration };
+      return calibration.useStandardized
+        ? { ...STANDARD_CALIBRATION }
+        : { ...calibration };
+    },
+    getStandardizedCalibration: function () {
+      return { ...STANDARD_CALIBRATION };
     },
   };
 })();
