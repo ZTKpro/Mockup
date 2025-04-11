@@ -1,76 +1,220 @@
 /**
- * loader.js - Plik odpowiedzialny za ładowanie wszystkich modułów
- * Umieść ten skrypt przed innymi skryptami w index.html
+ * debug.js - Moduł do debugowania aplikacji
  */
 
-// Flaga debugowania - sprawdź parametr URL lub localStorage
-const isDebug =
-  window.location.search.includes("debug=true") ||
-  localStorage.getItem("debug") === "true";
+const Debug = (function () {
+  // Flaga określająca, czy debugowanie jest włączone
+  let debugEnabled = false;
 
-// Lista modułów do załadowania - debug.js jako pierwszy
-const modules = [
-  "modules/debug.js",
-  "modules/config.js",
-  "modules/elements.js",
-  "modules/storage.js",
-  "modules/transformations.js",
-  "modules/userImage.js",
-  "modules/mockups.js",
-  "modules/export.js",
-  "modules/ui.js",
-  "modules/calibration.js",
-  "index.js",
-];
+  // Poziomy logowania
+  const LEVELS = {
+    INFO: { name: "INFO", color: "blue" },
+    WARN: { name: "WARN", color: "orange" },
+    ERROR: { name: "ERROR", color: "red" },
+    DEBUG: { name: "DEBUG", color: "green" },
+  };
 
-// Funkcja do ładowania skryptów po kolei
-function loadScriptsSequentially(scripts, index) {
-  if (index >= scripts.length) {
-    if (isDebug) {
+  /**
+   * Inicjalizuje moduł debugowania
+   * @param {boolean} enabled - Czy debugowanie ma być włączone
+   */
+  function init(enabled = false) {
+    debugEnabled = enabled;
+
+    if (debugEnabled) {
       console.log(
-        "%c[LOADER] Wszystkie moduły zostały załadowane",
+        "%c[DEBUG] Tryb debugowania został włączony",
         "color: green; font-weight: bold"
       );
     }
-    return;
   }
 
-  const script = document.createElement("script");
-  script.src = "js/" + scripts[index];
-
-  // Dodaj timestamp do URL, aby uniknąć cache podczas debugowania
-  if (isDebug) {
-    script.src += "?t=" + new Date().getTime();
+  /**
+   * Sprawdza, czy na stronie jest ustawiony parametr debug=true
+   * @returns {boolean} - Czy debugowanie jest włączone w URL
+   */
+  function checkUrlDebugFlag() {
+    const urlParams = new URLSearchParams(window.location.search);
+    return urlParams.get("debug") === "true";
   }
 
-  script.onload = function () {
-    if (isDebug) {
-      console.log(
-        `%c[LOADER] Załadowano moduł: ${scripts[index]}`,
-        "color: blue"
-      );
+  /**
+   * Sprawdza, czy w localStorage jest włączone debugowanie
+   * @returns {boolean} - Czy debugowanie jest włączone w localStorage
+   */
+  function checkLocalStorageDebugFlag() {
+    return localStorage.getItem("debug") === "true";
+  }
+
+  /**
+   * Loguje wiadomość na określonym poziomie
+   * @param {string} level - Poziom logowania
+   * @param {string} module - Nazwa modułu
+   * @param {string} message - Treść wiadomości
+   * @param {any} data - Dodatkowe dane do wyświetlenia
+   */
+  function log(level, module, message, data = null) {
+    if (!debugEnabled) return;
+
+    const timestamp = new Date().toISOString().split("T")[1].slice(0, -1);
+    const levelInfo = LEVELS[level] || LEVELS.INFO;
+
+    const logMessage = `[${timestamp}] [${levelInfo.name}] [${module}] ${message}`;
+
+    console.log(`%c${logMessage}`, `color: ${levelInfo.color}`);
+
+    if (data !== null) {
+      console.log(data);
     }
-    loadScriptsSequentially(scripts, index + 1);
+  }
+
+  /**
+   * Loguje wiadomość informacyjną
+   * @param {string} module - Nazwa modułu
+   * @param {string} message - Treść wiadomości
+   * @param {any} data - Dodatkowe dane
+   */
+  function info(module, message, data = null) {
+    log("INFO", module, message, data);
+  }
+
+  /**
+   * Loguje ostrzeżenie
+   * @param {string} module - Nazwa modułu
+   * @param {string} message - Treść wiadomości
+   * @param {any} data - Dodatkowe dane
+   */
+  function warn(module, message, data = null) {
+    log("WARN", module, message, data);
+  }
+
+  /**
+   * Loguje błąd
+   * @param {string} module - Nazwa modułu
+   * @param {string} message - Treść wiadomości
+   * @param {any} data - Dodatkowe dane
+   */
+  function error(module, message, data = null) {
+    log("ERROR", module, message, data);
+  }
+
+  /**
+   * Loguje wiadomość debugowania
+   * @param {string} module - Nazwa modułu
+   * @param {string} message - Treść wiadomości
+   * @param {any} data - Dodatkowe dane
+   */
+  function debug(module, message, data = null) {
+    log("DEBUG", module, message, data);
+  }
+
+  /**
+   * Mierzy czas wykonania funkcji
+   * @param {string} module - Nazwa modułu
+   * @param {string} functionName - Nazwa funkcji
+   * @param {Function} fn - Funkcja do wywołania
+   * @param {Array} args - Argumenty funkcji
+   * @returns {any} - Wynik wywołania funkcji
+   */
+  function time(module, functionName, fn, ...args) {
+    if (!debugEnabled) return fn(...args);
+
+    const start = performance.now();
+    const result = fn(...args);
+    const end = performance.now();
+
+    log(
+      "DEBUG",
+      module,
+      `${functionName} - czas wykonania: ${(end - start).toFixed(2)}ms`
+    );
+
+    return result;
+  }
+
+  /**
+   * Mierzy czas wykonania funkcji asynchronicznej
+   * @param {string} module - Nazwa modułu
+   * @param {string} functionName - Nazwa funkcji
+   * @param {Function} fn - Funkcja asynchroniczna
+   * @param {Array} args - Argumenty funkcji
+   * @returns {Promise<any>} - Wynik wywołania funkcji
+   */
+  async function timeAsync(module, functionName, fn, ...args) {
+    if (!debugEnabled) return fn(...args);
+
+    const start = performance.now();
+    const result = await fn(...args);
+    const end = performance.now();
+
+    log(
+      "DEBUG",
+      module,
+      `${functionName} - czas wykonania: ${(end - start).toFixed(2)}ms`
+    );
+
+    return result;
+  }
+
+  /**
+   * Włącza debugowanie
+   */
+  function enable() {
+    debugEnabled = true;
+    localStorage.setItem("debug", "true");
+    console.log(
+      "%c[DEBUG] Tryb debugowania został włączony",
+      "color: green; font-weight: bold"
+    );
+  }
+
+  /**
+   * Wyłącza debugowanie
+   */
+  function disable() {
+    debugEnabled = false;
+    localStorage.removeItem("debug");
+    console.log(
+      "%c[DEBUG] Tryb debugowania został wyłączony",
+      "color: red; font-weight: bold"
+    );
+  }
+
+  /**
+   * Sprawdza wszystkie dostępne flagi debugowania i inicjalizuje moduł
+   */
+  function checkDebugFlags() {
+    // Sprawdź flagę w URL
+    const urlDebug = checkUrlDebugFlag();
+
+    // Sprawdź flagę w localStorage
+    const localStorageDebug = checkLocalStorageDebugFlag();
+
+    // Włącz debugowanie, jeśli którakolwiek flaga jest true
+    init(urlDebug || localStorageDebug);
+
+    return debugEnabled;
+  }
+
+  // Inicjalizacja przy importowaniu modułu
+  checkDebugFlags();
+
+  // Publiczny interfejs modułu
+  return {
+    init,
+    info,
+    warn,
+    error,
+    debug,
+    time,
+    timeAsync,
+    enable,
+    disable,
+    isEnabled: function () {
+      return debugEnabled;
+    },
   };
+})();
 
-  script.onerror = function () {
-    if (isDebug) {
-      console.error(
-        `%c[LOADER] Błąd ładowania modułu: ${scripts[index]}`,
-        "color: red"
-      );
-    }
-    loadScriptsSequentially(scripts, index + 1);
-  };
-
-  document.head.appendChild(script);
-}
-
-// Rozpocznij ładowanie modułów
-if (isDebug) {
-  console.log(
-    "%c[LOADER] Rozpoczęcie ładowania modułów w trybie debug",
-    "color: green; font-weight: bold"
-  );
-}
-loadScriptsSequentially(modules, 0);
+// Eksport modułu jako obiekt globalny
+window.Debug = Debug;
