@@ -5,6 +5,15 @@ const fs = require("fs");
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// Sprawdź, czy aplikacja jest uruchomiona w trybie debugowania
+const isDebugMode = process.argv.includes('--debug');
+
+if (isDebugMode) {
+  console.log('====================================');
+  console.log('Uruchomiono serwer w trybie debugowania');
+  console.log('====================================');
+}
+
 // Create upload directories if they don't exist
 const uploadDir = path.join(__dirname, "uploads");
 const mockupDir = path.join(uploadDir, "mockups");
@@ -12,6 +21,7 @@ const mockupDir = path.join(uploadDir, "mockups");
 // Ensure directories exist
 [uploadDir, mockupDir].forEach((dir) => {
   if (!fs.existsSync(dir)) {
+    if (isDebugMode) console.log(`Tworzenie katalogu: ${dir}`);
     fs.mkdirSync(dir, { recursive: true });
   }
 });
@@ -19,6 +29,7 @@ const mockupDir = path.join(uploadDir, "mockups");
 // Configure multer storage for mockups (saved to disk)
 const mockupStorage = multer.diskStorage({
   destination: function (req, file, cb) {
+    if (isDebugMode) console.log(`Zapisywanie mockupu do: ${mockupDir}`);
     cb(null, mockupDir);
   },
   filename: function (req, file, cb) {
@@ -29,7 +40,9 @@ const mockupStorage = multer.diskStorage({
           .replace(/\s+/g, "_")
       : "Inne";
 
-    cb(null, `${mockupNumber}_${mockupModel}.png`);
+    const filename = `${mockupNumber}_${mockupModel}.png`;
+    if (isDebugMode) console.log(`Generowanie nazwy pliku mockupu: ${filename}`);
+    cb(null, filename);
   },
 });
 
@@ -39,8 +52,10 @@ const userImageStorage = multer.memoryStorage();
 // File filter to accept only images
 const fileFilter = (req, file, cb) => {
   if (file.mimetype.startsWith("image/")) {
+    if (isDebugMode) console.log(`Zaakceptowano plik: ${file.originalname}, typ: ${file.mimetype}`);
     cb(null, true);
   } else {
+    if (isDebugMode) console.log(`Odrzucono plik: ${file.originalname}, typ: ${file.mimetype}`);
     cb(new Error("Dozwolone są tylko pliki graficzne!"), false);
   }
 };
@@ -52,6 +67,14 @@ const uploadUserImage = multer({
     fileSize: 10 * 1024 * 1024, // 10MB limit
   },
 });
+
+// Dodaj middleware do logowania zapytań w trybie debugowania
+if (isDebugMode) {
+  app.use((req, res, next) => {
+    console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
+    next();
+  });
+}
 
 // Serve static files from the current directory
 app.use(express.static(__dirname));
@@ -69,6 +92,7 @@ app.post(
   uploadUserImage.single("image"),
   (req, res) => {
     if (!req.file) {
+      if (isDebugMode) console.log("Błąd: Nie przesłano pliku obrazu użytkownika");
       return res.status(400).json({ error: "Nie przesłano pliku" });
     }
 
@@ -78,6 +102,8 @@ app.post(
     const base64Image = `data:${
       req.file.mimetype
     };base64,${req.file.buffer.toString("base64")}`;
+
+    if (isDebugMode) console.log(`Obraz użytkownika przekonwertowany do base64, rozmiar: ${req.file.size} bajtów`);
 
     // Return the base64 data URL instead of a file path
     res.json({
@@ -100,6 +126,7 @@ const upload = multer({
 // API endpoint to upload mockups - these are still saved to disk
 app.post("/api/upload/mockup", upload.single("mockup"), (req, res) => {
   if (!req.file) {
+    if (isDebugMode) console.log("Błąd: Nie przesłano pliku mockupu");
     return res.status(400).json({ error: "Nie przesłano pliku" });
   }
 
@@ -115,10 +142,13 @@ app.post("/api/upload/mockup", upload.single("mockup"), (req, res) => {
   const filename = `${mockupNumber}_${mockupModel}.png`;
   const filepath = path.join(mockupDir, filename);
 
+  if (isDebugMode) console.log(`Zapisywanie mockupu: ${filename}, rozmiar: ${req.file.size} bajtów`);
+
   // Write the file from memory to disk
   fs.writeFile(filepath, req.file.buffer, (err) => {
     if (err) {
       console.error("Error saving file:", err);
+      if (isDebugMode) console.log(`Błąd zapisywania mockupu: ${err.message}`);
       return res.status(500).json({ error: "Błąd zapisywania pliku" });
     }
 
@@ -138,6 +168,8 @@ app.get("/api/mockups", (req, res) => {
   try {
     const mockups = [];
     const files = fs.readdirSync(mockupDir);
+
+    if (isDebugMode) console.log(`Wczytywanie mockupów, znaleziono ${files.length} plików`);
 
     files.forEach((file) => {
       if (file.endsWith(".png")) {
@@ -164,6 +196,8 @@ app.get("/api/mockups", (req, res) => {
           path: filePath,
           fileName: file,
         });
+        
+        if (isDebugMode) console.log(`Znaleziono mockup: ID=${id}, Model=${model}, Plik=${file}`);
       }
     });
 
@@ -171,6 +205,7 @@ app.get("/api/mockups", (req, res) => {
     res.json({ success: true, mockups });
   } catch (error) {
     console.error("Error reading mockups directory:", error);
+    if (isDebugMode) console.log(`Błąd odczytu katalogu mockupów: ${error.message}`);
     res.status(500).json({ error: "Błąd odczytu mockupów" });
   }
 });
@@ -179,6 +214,8 @@ app.get("/api/models", (req, res) => {
   try {
     const models = new Set();
     const files = fs.readdirSync(mockupDir);
+
+    if (isDebugMode) console.log(`Wczytywanie modeli z ${files.length} plików`);
 
     files.forEach((file) => {
       if (file.endsWith(".png")) {
@@ -197,9 +234,12 @@ app.get("/api/models", (req, res) => {
       }
     });
 
+    if (isDebugMode) console.log(`Znaleziono modele: ${Array.from(models).join(', ')}`);
+    
     res.json({ success: true, models: Array.from(models).sort() });
   } catch (error) {
     console.error("Error reading models:", error);
+    if (isDebugMode) console.log(`Błąd odczytu modeli: ${error.message}`);
     res.status(500).json({ error: "Błąd odczytu modeli" });
   }
 });
@@ -209,7 +249,10 @@ app.put("/api/mockups/:id/model", express.json(), (req, res) => {
     const mockupId = parseInt(req.params.id, 10);
     const newModel = req.body.model;
 
+    if (isDebugMode) console.log(`Aktualizacja modelu mockupu ID=${mockupId} na "${newModel}"`);
+
     if (!newModel) {
+      if (isDebugMode) console.log(`Błąd: Nie podano modelu dla mockupu ID=${mockupId}`);
       return res.status(400).json({ error: "Model nie został podany" });
     }
 
@@ -226,6 +269,7 @@ app.put("/api/mockups/:id/model", express.json(), (req, res) => {
     let mockupFile = null;
 
     console.log(`Looking for mockup ID: ${mockupId}`);
+    if (isDebugMode) console.log(`Szukanie pliku mockupu ID=${mockupId}`);
 
     for (const file of files) {
       if (file.endsWith(".png")) {
@@ -242,10 +286,12 @@ app.put("/api/mockups/:id/model", express.json(), (req, res) => {
 
           if (id === mockupId) {
             mockupFile = file;
+            if (isDebugMode) console.log(`Znaleziono plik mockupu: ${file} dla ID=${mockupId}`);
             break;
           }
         } catch (parseError) {
           console.error(`Error parsing ID from filename ${file}:`, parseError);
+          if (isDebugMode) console.log(`Błąd parsowania ID z nazwy pliku ${file}: ${parseError.message}`);
           // Continue to next file if parsing fails
           continue;
         }
@@ -253,6 +299,7 @@ app.put("/api/mockups/:id/model", express.json(), (req, res) => {
     }
 
     if (!mockupFile) {
+      if (isDebugMode) console.log(`Nie znaleziono mockupu o ID=${mockupId}`);
       return res.status(404).json({
         error: "Nie znaleziono mockupu",
         mockupId: mockupId,
@@ -266,6 +313,7 @@ app.put("/api/mockups/:id/model", express.json(), (req, res) => {
     const newFileName = `${mockupId}_${filenameModel}.png`;
 
     console.log(`Renaming ${mockupFile} to ${newFileName}`);
+    if (isDebugMode) console.log(`Zmiana nazwy pliku z ${mockupFile} na ${newFileName}`);
 
     // Rename the file
     fs.renameSync(
@@ -280,6 +328,7 @@ app.put("/api/mockups/:id/model", express.json(), (req, res) => {
     });
   } catch (error) {
     console.error("Error updating mockup model:", error);
+    if (isDebugMode) console.log(`Błąd aktualizacji modelu mockupu: ${error.message}`);
     res.status(500).json({
       error: "Błąd aktualizacji modelu mockupu",
       message: error.message,
@@ -290,6 +339,8 @@ app.put("/api/mockups/:id/model", express.json(), (req, res) => {
 app.delete("/api/mockups/:id", (req, res) => {
   try {
     const mockupId = parseInt(req.params.id, 10);
+    
+    if (isDebugMode) console.log(`Usuwanie mockupu ID=${mockupId}`);
 
     // Read the mockups directory to find the file with matching ID
     const files = fs.readdirSync(mockupDir);
@@ -315,6 +366,7 @@ app.delete("/api/mockups/:id", (req, res) => {
 
         if (id === mockupId) {
           mockupFile = file;
+          if (isDebugMode) console.log(`Znaleziono plik mockupu do usunięcia: ${file}`);
           break;
         }
       }
@@ -325,12 +377,15 @@ app.delete("/api/mockups/:id", (req, res) => {
 
       // Delete the file
       fs.unlinkSync(mockupPath);
+      if (isDebugMode) console.log(`Usunięto plik mockupu: ${mockupPath}`);
       res.json({ success: true, message: "Mockup usunięty pomyślnie" });
     } else {
+      if (isDebugMode) console.log(`Nie znaleziono mockupu o ID=${mockupId}`);
       res.status(404).json({ error: "Nie znaleziono mockupu" });
     }
   } catch (error) {
     console.error("Error deleting mockup:", error);
+    if (isDebugMode) console.log(`Błąd podczas usuwania mockupu: ${error.message}`);
     res.status(500).json({ error: "Błąd podczas usuwania mockupu" });
   }
 });
@@ -338,4 +393,10 @@ app.delete("/api/mockups/:id", (req, res) => {
 // Start the server
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}  http://localhost:${PORT}/`);
+  if (isDebugMode) {
+    console.log("============================================");
+    console.log(`Serwer uruchomiony w trybie DEBUG na porcie ${PORT}`);
+    console.log(`http://localhost:${PORT}/?debug=true`);
+    console.log("============================================");
+  }
 });
