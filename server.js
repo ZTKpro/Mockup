@@ -8,10 +8,9 @@ const PORT = process.env.PORT || 3000;
 // Create upload directories if they don't exist
 const uploadDir = path.join(__dirname, "uploads");
 const mockupDir = path.join(uploadDir, "mockups");
-const userImagesDir = path.join(uploadDir, "user-images");
 
 // Ensure directories exist
-[uploadDir, mockupDir, userImagesDir].forEach((dir) => {
+[uploadDir, mockupDir].forEach((dir) => {
   if (!fs.existsSync(dir)) {
     fs.mkdirSync(dir, { recursive: true });
   }
@@ -45,15 +44,6 @@ const fileFilter = (req, file, cb) => {
     cb(new Error("Dozwolone są tylko pliki graficzne!"), false);
   }
 };
-
-// Setup the multer uploads with different configurations
-const uploadMockup = multer({
-  storage: mockupStorage,
-  fileFilter: fileFilter,
-  limits: {
-    fileSize: 10 * 1024 * 1024, // 10MB limit
-  },
-});
 
 const uploadUserImage = multer({
   storage: userImageStorage, // Using memory storage for user images

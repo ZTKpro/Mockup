@@ -559,10 +559,6 @@ img {
   margin-bottom: 8px;
 }
 
-.model-filter {
-  margin-bottom: 5px;
-}
-
 .model-filters {
   padding: 10px;
   background-color: #f0f0f0;
@@ -701,3 +697,213 @@ img {
     grid-template-columns: repeat(2, 1fr);
   }
 }
+
+  .calibration-bubble {
+        position: fixed;
+        bottom: 30px;
+        right: 30px;
+        width: 60px;
+        height: 60px;
+        background-color: #3498db;
+        border-radius: 50%;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        color: white;
+        font-size: 24px;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+        cursor: pointer;
+        z-index: 999;
+        transition: all 0.3s ease;
+      }
+
+      .calibration-bubble:hover {
+        background-color: #2980b9;
+        transform: scale(1.05);
+      }
+
+      /* Style dla panelu kalibracji */
+      .calibration-panel {
+        position: fixed;
+        bottom: 100px;
+        right: 30px;
+        width: 350px;
+        background-color: white;
+        border-radius: 10px;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+        padding: 20px;
+        z-index: 998;
+        display: none;
+        transition: all 0.3s ease;
+      }
+
+      .calibration-panel.active {
+        display: block;
+        animation: slideIn 0.3s forwards;
+      }
+
+      @keyframes slideIn {
+        from {
+          opacity: 0;
+          transform: translateY(20px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      .calibration-title {
+        font-weight: bold;
+        margin-bottom: 15px;
+        padding-bottom: 10px;
+        border-bottom: 1px solid #eee;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+
+      .calibration-close {
+        font-size: 20px;
+        cursor: pointer;
+        color: #95a5a6;
+        padding: 5px;
+      }
+
+      .calibration-close:hover {
+        color: #e74c3c;
+      }
+
+      .calibration-section {
+        margin-bottom: 15px;
+      }
+
+      .calibration-section-title {
+        font-weight: bold;
+        margin-bottom: 10px;
+        color: #2c3e50;
+      }
+
+      /* Style dla przełączników */
+      .toggle-switch {
+        position: relative;
+        display: inline-block;
+        width: 50px;
+        height: 24px;
+        margin-right: 10px;
+      }
+
+      .toggle-switch input {
+        opacity: 0;
+        width: 0;
+        height: 0;
+      }
+
+      .toggle-slider {
+        position: absolute;
+        cursor: pointer;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background-color: #ccc;
+        transition: 0.4s;
+        border-radius: 24px;
+      }
+
+      .toggle-slider:before {
+        position: absolute;
+        content: "";
+        height: 16px;
+        width: 16px;
+        left: 4px;
+        bottom: 4px;
+        background-color: white;
+        transition: 0.4s;
+        border-radius: 50%;
+      }
+
+      input:checked + .toggle-slider {
+        background-color: #2196f3;
+      }
+
+      input:checked + .toggle-slider:before {
+        transform: translateX(26px);
+      }
+
+      .calibration-option {
+        display: flex;
+        align-items: center;
+        margin-bottom: 10px;
+      }
+
+      .calibration-option-label {
+        flex: 1;
+      }
+
+      .calibration-factor-container {
+        display: flex;
+        align-items: center;
+        margin-bottom: 10px;
+      }
+
+      .calibration-factor-label {
+        flex: 1;
+      }
+
+      .calibration-factor-input {
+        width: 70px;
+        padding: 5px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        text-align: center;
+      }
+
+      .calibration-factor-value {
+        width: 30px;
+        text-align: right;
+        margin-left: 10px;
+        font-weight: bold;
+      }
+
+      .calibration-presets {
+        display: flex;
+        justify-content: space-between;
+        margin-top: 15px;
+      }
+
+      .calibration-actions {
+        display: flex;
+        justify-content: space-between;
+        margin-top: 15px;
+        padding-top: 15px;
+        border-top: 1px solid #eee;
+      }
+
+      .calibration-save-button {
+        padding: 8px 15px;
+        background-color: #27ae60;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        transition: background-color 0.3s;
+      }
+
+      .calibration-save-button:hover {
+        background-color: #2ecc71;
+      }
+
+      .calibration-reset-button {
+        padding: 8px 15px;
+        background-color: #e74c3c;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        transition: background-color 0.3s;
+      }
+
+      .calibration-reset-button:hover {
+        background-color: #c0392b;
+      }
