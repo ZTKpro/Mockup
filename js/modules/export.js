@@ -1,30 +1,29 @@
 /**
- * export.js - Plik zawierający funkcje do eksportu i pobierania obrazów
- * Zmodyfikowany, aby zapewnić liniowe, spójne powiększenie
+ * export.js - Module for exporting and downloading images
+ * Modified to support multiple elements on a mockup
  */
 
 const Export = (function () {
-  // Inicjalizacja debugowania
+  // Initialize debugging
   if (window.Debug) {
-    Debug.info("EXPORT", "Inicjalizacja modułu eksportu");
+    Debug.info("EXPORT", "Initializing export module");
   }
 
-  // Stały współczynnik powiększenia dla wszystkich urządzeń
-  // Ta wartość jest używana jako mnożnik dla procentowej wartości powiększenia
-  const ABSOLUTE_ZOOM_FACTOR = 0.015; // 1% powiększenia = 0.01 współczynnika skali
-  
-  // Referencyjny rozmiar obrazu, dla którego ABSOLUTE_ZOOM_FACTOR działa poprawnie
+  // Constant zoom factor for consistent scaling across devices
+  const ABSOLUTE_ZOOM_FACTOR = 0.015;
+
+  // Reference size for which ABSOLUTE_ZOOM_FACTOR works correctly
   const REFERENCE_SIZE = 1200;
 
   /**
-   * Pokazuje dialog z opcjami pobierania
+   * Show download options dialog
    */
   function showDownloadOptions() {
     if (window.Debug) {
-      Debug.debug("EXPORT", "Wyświetlanie dialogu opcji pobierania");
+      Debug.debug("EXPORT", "Displaying download options dialog");
     }
 
-    // Tworzymy dialog
+    // Create dialog
     const dialogOverlay = document.createElement("div");
     dialogOverlay.className = "download-dialog-overlay";
 
@@ -32,10 +31,10 @@ const Export = (function () {
     dialogBox.className = "download-dialog";
 
     dialogBox.innerHTML = `
-      <h3>Opcje pobierania</h3>
+      <h3>Download Options</h3>
       
       <div style="margin-bottom: 15px;">
-        <label style="display: block; margin-bottom: 5px; font-weight: bold;">Format pliku:</label>
+        <label style="display: block; margin-bottom: 5px; font-weight: bold;">File Format:</label>
         <select id="format-select" style="width: 100%; padding: 8px; border-radius: 4px; border: 1px solid #ddd;">
           <option value="png">PNG</option>
           <option value="jpg">JPG</option>
@@ -43,7 +42,7 @@ const Export = (function () {
       </div>
       
       <div style="margin-bottom: 15px;">
-        <label style="display: block; margin-bottom: 5px; font-weight: bold;">Rozmiar:</label>
+        <label style="display: block; margin-bottom: 5px; font-weight: bold;">Size:</label>
         <select id="size-select" style="width: 100%; padding: 8px; border-radius: 4px; border: 1px solid #ddd;">
           ${EditorConfig.export.availableSizes
             .map(
@@ -54,20 +53,20 @@ const Export = (function () {
       </div>
       
       <div class="download-dialog-buttons">
-        <button id="cancel-download" class="cancel">Anuluj</button>
-        <button id="confirm-download" class="confirm">Pobierz</button>
+        <button id="cancel-download" class="cancel">Cancel</button>
+        <button id="confirm-download" class="confirm">Download</button>
       </div>
     `;
 
     dialogOverlay.appendChild(dialogBox);
     document.body.appendChild(dialogOverlay);
 
-    // Obsługa przycisków
+    // Button handlers
     document
       .getElementById("cancel-download")
       .addEventListener("click", function () {
         if (window.Debug) {
-          Debug.debug("EXPORT", "Anulowano dialog pobierania");
+          Debug.debug("EXPORT", "Download dialog canceled");
         }
         document.body.removeChild(dialogOverlay);
       });
@@ -79,22 +78,22 @@ const Export = (function () {
         const size = document.getElementById("size-select").value;
 
         if (window.Debug) {
-          Debug.debug("EXPORT", "Zatwierdzono opcje pobierania", {
+          Debug.debug("EXPORT", "Download options confirmed", {
             format,
             size,
           });
         }
 
-        // Usuń dialog
+        // Remove dialog
         document.body.removeChild(dialogOverlay);
 
-        // Generuj i pobierz obraz, używając modelu i nazwy mockupu
+        // Generate and download image using mockup model and name
         const currentMockup = Mockups.getCurrentMockup();
         const sanitizedName = currentMockup.model.replace(/\s+/g, "_");
         const fileName = `${sanitizedName}_${size}x${size}.${format}`;
 
         if (window.Debug) {
-          Debug.debug("EXPORT", `Generowanie pliku: ${fileName}`);
+          Debug.debug("EXPORT", `Generating file: ${fileName}`);
         }
 
         generateAndDownloadImage(fileName, format, parseInt(size));
@@ -102,19 +101,19 @@ const Export = (function () {
   }
 
   /**
-   * Generuje i pobiera obraz
-   * @param {string} fileName - Nazwa pliku do pobrania
-   * @param {string} format - Format pliku (png/jpg)
-   * @param {number} size - Rozmiar obrazu w pikselach
-   * @returns {Promise<boolean>} - True jeśli pobieranie zakończyło się sukcesem
+   * Generate and download image
+   * @param {string} fileName - Filename for download
+   * @param {string} format - File format (png/jpg)
+   * @param {number} size - Image size in pixels
+   * @returns {Promise<boolean>} - True if download succeeded
    */
   async function generateAndDownloadImage(
-    fileName = "projekt-etui.png",
+    fileName = "phone-case-design.png",
     format = "png",
     size = 1200
   ) {
     if (window.Debug) {
-      Debug.info("EXPORT", "Rozpoczęcie generowania obrazu", {
+      Debug.info("EXPORT", "Starting image generation", {
         fileName,
         format,
         size,
@@ -123,213 +122,428 @@ const Export = (function () {
 
     const progressMsg = document.createElement("div");
     progressMsg.className = "progress-message";
-    progressMsg.textContent = "Trwa generowanie obrazu, proszę czekać...";
+    progressMsg.textContent = "Generating image, please wait...";
     document.body.appendChild(progressMsg);
 
     return new Promise((resolve) => {
       setTimeout(async function () {
         try {
-          // Tworzymy canvas o określonym rozmiarze
+          // Create canvas with specified size
           const canvas = document.createElement("canvas");
           canvas.width = size;
           canvas.height = size;
 
           const ctx = canvas.getContext("2d");
-          // Ustawienia dla lepszej jakości
+          // Settings for better quality
           ctx.imageSmoothingEnabled = true;
           ctx.imageSmoothingQuality = "high";
 
-          // Użyj wybranego koloru tła
+          // Use selected background color
           const transformState = Transformations.getState();
           ctx.fillStyle = transformState.currentBackgroundColor;
           ctx.fillRect(0, 0, canvas.width, canvas.height);
 
           if (window.Debug) {
-            Debug.debug("EXPORT", "Utworzono canvas i ustawiono tło", {
+            Debug.debug("EXPORT", "Created canvas and set background", {
               width: size,
               height: size,
               backgroundColor: transformState.currentBackgroundColor,
             });
           }
 
+          // Load mockup image
           const mockupImg = new Image();
-          const userImg = new Image();
+          mockupImg.crossOrigin = "Anonymous";
+          const timestamp = new Date().getTime();
+          mockupImg.src = Elements.mockupImage.src + "?t=" + timestamp;
 
-          let imagesLoaded = 0;
-          let hasError = false;
+          // Create a promise to wait for the mockup to load
+          const mockupLoadPromise = new Promise((resolve, reject) => {
+            mockupImg.onload = resolve;
+            mockupImg.onerror = () =>
+              reject(new Error("Failed to load mockup image"));
 
-          function handleImageError(message) {
-            hasError = true;
+            // Timeout to prevent hanging
+            setTimeout(
+              () => reject(new Error("Mockup image load timeout")),
+              10000
+            );
+          });
+
+          try {
+            // Wait for mockup to load
+            await mockupLoadPromise;
+
             if (window.Debug) {
-              Debug.error("EXPORT", "Błąd ładowania obrazu", message);
+              Debug.debug("EXPORT", "Mockup image loaded", {
+                width: mockupImg.naturalWidth,
+                height: mockupImg.naturalHeight,
+              });
             }
-            console.error(message);
-            document.body.removeChild(progressMsg);
-            alert("Błąd: " + message);
-            resolve(false);
-          }
 
-          function drawAndDownload() {
-            if (hasError) return resolve(false);
+            // Calculate mockup scaling
+            const mockupScaleFactor = Math.min(
+              size / mockupImg.naturalWidth,
+              size / mockupImg.naturalHeight
+            );
 
-            try {
+            const drawWidth = mockupImg.naturalWidth * mockupScaleFactor;
+            const drawHeight = mockupImg.naturalHeight * mockupScaleFactor;
+
+            const mockupX = (canvas.width - drawWidth) / 2;
+            const mockupY = (canvas.height - drawHeight) / 2;
+
+            if (window.Debug) {
+              Debug.debug("EXPORT", "Mockup drawing parameters", {
+                mockupScaleFactor,
+                drawWidth,
+                drawHeight,
+                mockupX,
+                mockupY,
+              });
+            }
+
+            // Check if we have the ElementsManager module
+            if (
+              window.ElementsManager &&
+              ElementsManager.getElementCount() > 0
+            ) {
+              // Get all elements sorted by layer
+              const elements = ElementsManager.getAllElements();
+
               if (window.Debug) {
-                Debug.debug("EXPORT", "Rysowanie na canvas");
+                Debug.debug("EXPORT", `Drawing ${elements.length} elements`);
               }
 
-              // Obliczamy podstawowy współczynnik skalowania mockupu
-              const mockupScaleFactor = Math.min(
-                size / mockupImg.naturalWidth,
-                size / mockupImg.naturalHeight
+              // Load all element images
+              const elementImages = [];
+              for (let i = 0; i < elements.length; i++) {
+                const element = elements[i];
+
+                try {
+                  // Create and load image
+                  const img = new Image();
+                  img.crossOrigin = "Anonymous";
+
+                  // Create a promise for this image load
+                  await new Promise((resolve, reject) => {
+                    img.onload = resolve;
+                    img.onerror = () =>
+                      reject(
+                        new Error(`Failed to load element ${i + 1} image`)
+                      );
+                    img.src = element.src;
+
+                    // Timeout
+                    setTimeout(
+                      () =>
+                        reject(
+                          new Error(`Element ${i + 1} image load timeout`)
+                        ),
+                      10000
+                    );
+                  });
+
+                  elementImages.push({
+                    img: img,
+                    transformations: element.transformations,
+                  });
+
+                  if (window.Debug) {
+                    Debug.debug("EXPORT", `Element ${i + 1} image loaded`, {
+                      width: img.naturalWidth,
+                      height: img.naturalHeight,
+                    });
+                  }
+                } catch (error) {
+                  if (window.Debug) {
+                    Debug.error(
+                      "EXPORT",
+                      `Error loading element ${i + 1} image`,
+                      error
+                    );
+                  }
+                  throw error;
+                }
+              }
+
+              // Draw all elements according to layer order and mockup position
+              drawElementsOnCanvas(
+                ctx,
+                elementImages,
+                mockupScaleFactor,
+                size,
+                mockupImg,
+                mockupX,
+                mockupY,
+                drawWidth,
+                drawHeight
               );
+            } else {
+              // Legacy mode - single image
+              if (window.Debug) {
+                Debug.debug("EXPORT", "Using legacy mode (single image)");
+              }
 
-              const drawWidth = mockupImg.naturalWidth * mockupScaleFactor;
-              const drawHeight = mockupImg.naturalHeight * mockupScaleFactor;
-
-              const mockupX = (canvas.width - drawWidth) / 2;
-              const mockupY = (canvas.height - drawHeight) / 2;
-
-              const transformState = Transformations.getState();
+              // Create a layer ordering flag
               const imageOnTop = transformState.isLayerFront;
 
-              if (window.Debug) {
-                Debug.debug("EXPORT", "Parametry rysowania mockupu", {
-                  mockupScaleFactor,
-                  drawWidth,
-                  drawHeight,
+              if (imageOnTop) {
+                // Draw mockup first, then user image
+                ctx.drawImage(
+                  mockupImg,
                   mockupX,
                   mockupY,
-                  imageOnTop,
+                  drawWidth,
+                  drawHeight
+                );
+                drawLegacyUserImage(ctx, mockupScaleFactor, size);
+              } else {
+                // Draw user image first, then mockup
+                drawLegacyUserImage(ctx, mockupScaleFactor, size);
+                ctx.drawImage(
+                  mockupImg,
+                  mockupX,
+                  mockupY,
+                  drawWidth,
+                  drawHeight
+                );
+              }
+            }
+
+            // Convert to blob and download
+            if (canvas.toBlob) {
+              const mimeType = format === "jpg" ? "image/jpeg" : "image/png";
+              const quality =
+                format === "jpg" ? EditorConfig.export.jpgQuality : undefined;
+
+              if (window.Debug) {
+                Debug.debug("EXPORT", "Generating BLOB", {
+                  mimeType,
+                  quality,
                 });
               }
 
-              if (imageOnTop) {
-                ctx.drawImage(
-                  mockupImg,
-                  mockupX,
-                  mockupY,
-                  drawWidth,
-                  drawHeight
-                );
-                drawUserImage();
-              } else {
-                drawUserImage();
-                ctx.drawImage(
-                  mockupImg,
-                  mockupX,
-                  mockupY,
-                  drawWidth,
-                  drawHeight
+              canvas.toBlob(
+                function (blob) {
+                  downloadUsingBlob(blob);
+                },
+                mimeType,
+                quality
+              );
+            } else {
+              if (window.Debug) {
+                Debug.debug(
+                  "EXPORT",
+                  "Canvas.toBlob not available, using DataURL"
                 );
               }
 
-              function drawUserImage() {
-                if (window.Debug) {
-                  Debug.debug("EXPORT", "Rysowanie obrazu użytkownika");
+              const dataURL = canvas.toDataURL(
+                format === "jpg" ? "image/jpeg" : "image/png"
+              );
+              downloadUsingDataURL(dataURL);
+            }
+          } catch (error) {
+            if (window.Debug) {
+              Debug.error("EXPORT", "Error loading or drawing images", error);
+            }
+            document.body.removeChild(progressMsg);
+            alert("Error: " + error.message);
+            resolve(false);
+          }
+
+          function drawLegacyUserImage(ctx, mockupScaleFactor, size) {
+            if (window.Debug) {
+              Debug.debug("EXPORT", "Drawing legacy user image");
+            }
+
+            const userImg = new Image();
+            userImg.crossOrigin = "Anonymous";
+            userImg.src = Elements.imagePreview.src;
+
+            return new Promise((resolve, reject) => {
+              userImg.onload = function () {
+                try {
+                  const canvasCenterX = size / 2;
+                  const canvasCenterY = size / 2;
+
+                  // Scale position according to mockup scaling
+                  const scaledX = Math.round(
+                    transformState.currentX * mockupScaleFactor
+                  );
+                  const scaledY = Math.round(
+                    transformState.currentY * mockupScaleFactor
+                  );
+
+                  const userImageX = canvasCenterX + scaledX;
+                  const userImageY = canvasCenterY + scaledY;
+
+                  // Calculate zoom factor based on output size
+                  const sizeScalingRatio = size / REFERENCE_SIZE;
+                  const absoluteZoom =
+                    transformState.currentZoom *
+                    ABSOLUTE_ZOOM_FACTOR *
+                    sizeScalingRatio;
+
+                  if (window.Debug) {
+                    Debug.debug(
+                      "EXPORT",
+                      "Legacy user image transformation parameters",
+                      {
+                        scaledX,
+                        scaledY,
+                        userImageX,
+                        userImageY,
+                        rotation: transformState.currentRotation,
+                        currentZoomPercent: transformState.currentZoom,
+                        sizeScalingRatio,
+                        absoluteZoom,
+                      }
+                    );
+                  }
+
+                  ctx.save();
+                  ctx.translate(userImageX, userImageY);
+                  ctx.rotate((transformState.currentRotation * Math.PI) / 180);
+                  ctx.scale(absoluteZoom, absoluteZoom);
+                  ctx.drawImage(
+                    userImg,
+                    -userImg.naturalWidth / 2,
+                    -userImg.naturalHeight / 2
+                  );
+                  ctx.restore();
+
+                  resolve();
+                } catch (error) {
+                  reject(error);
                 }
+              };
 
-                const canvasCenterX = canvas.width / 2;
-                const canvasCenterY = canvas.height / 2;
+              userImg.onerror = () =>
+                reject(new Error("Failed to load user image"));
+              setTimeout(
+                () => reject(new Error("User image load timeout")),
+                10000
+              );
+            });
+          }
 
-                // Najpierw obliczamy pozycję z uwzględnieniem skalowania mockupu
-                const scaledX = Math.round(
-                  transformState.currentX * mockupScaleFactor
+          function drawElementsOnCanvas(
+            ctx,
+            elementImages,
+            mockupScaleFactor,
+            size,
+            mockupImg,
+            mockupX,
+            mockupY,
+            drawWidth,
+            drawHeight
+          ) {
+            if (window.Debug) {
+              Debug.debug("EXPORT", "Drawing multiple elements on canvas");
+            }
+
+            const canvasCenterX = size / 2;
+            const canvasCenterY = size / 2;
+            const sizeScalingRatio = size / REFERENCE_SIZE;
+
+            // Determine if mockup should be on top (last element's layer index > mockup's index)
+            const mockupLayerIndex = 0; // Mockup is typically at layer 0
+            const mockupOnTop = elementImages.some(
+              (el) => el.transformations.layerIndex < mockupLayerIndex
+            );
+
+            // Sort elements by layer index (bottom to top)
+            elementImages.sort(
+              (a, b) =>
+                a.transformations.layerIndex - b.transformations.layerIndex
+            );
+
+            // Create an array of all layers including the mockup
+            const allLayers = [
+              ...elementImages.map((el) => ({
+                type: "element",
+                layerIndex: el.transformations.layerIndex,
+                data: el,
+              })),
+              {
+                type: "mockup",
+                layerIndex: mockupLayerIndex,
+                data: {
+                  img: mockupImg,
+                  x: mockupX,
+                  y: mockupY,
+                  width: drawWidth,
+                  height: drawHeight,
+                },
+              },
+            ];
+
+            // Sort all layers by layer index
+            allLayers.sort((a, b) => a.layerIndex - b.layerIndex);
+
+            // Draw each layer
+            allLayers.forEach((layer) => {
+              if (layer.type === "mockup") {
+                // Draw mockup
+                ctx.drawImage(
+                  layer.data.img,
+                  layer.data.x,
+                  layer.data.y,
+                  layer.data.width,
+                  layer.data.height
                 );
-                const scaledY = Math.round(
-                  transformState.currentY * mockupScaleFactor
-                );
+              } else {
+                // Draw element
+                const element = layer.data;
+                const transform = element.transformations;
 
-                const userImageX = canvasCenterX + scaledX;
-                const userImageY = canvasCenterY + scaledY;
+                // Scale position according to mockup scaling
+                const scaledX = Math.round(transform.x * mockupScaleFactor);
+                const scaledY = Math.round(transform.y * mockupScaleFactor);
 
-                // WAŻNA MODYFIKACJA: Dostosowanie współczynnika powiększenia do rozmiaru wyjściowego
-                // Obliczamy współczynnik skalowania względem referencyjnego rozmiaru
-                const sizeScalingRatio = size / REFERENCE_SIZE;
-                
-                // Wartość powiększenia jest teraz bezpośrednio powiązana z procentem
-                // oraz z rozmiarem wyjściowym
-                const absoluteZoom = transformState.currentZoom * ABSOLUTE_ZOOM_FACTOR * sizeScalingRatio;
+                const elementX = canvasCenterX + scaledX;
+                const elementY = canvasCenterY + scaledY;
+
+                // Calculate absolute zoom
+                const absoluteZoom =
+                  transform.zoom * ABSOLUTE_ZOOM_FACTOR * sizeScalingRatio;
 
                 if (window.Debug) {
                   Debug.debug(
                     "EXPORT",
-                    "Parametry transformacji obrazu użytkownika",
+                    `Drawing element at layer ${transform.layerIndex}`,
                     {
                       scaledX,
                       scaledY,
-                      userImageX,
-                      userImageY,
-                      rotation: transformState.currentRotation,
-                      currentZoomPercent: transformState.currentZoom,
-                      referenceSize: REFERENCE_SIZE,
-                      outputSize: size,
-                      sizeScalingRatio: sizeScalingRatio,
-                      absoluteZoom: absoluteZoom,
+                      elementX,
+                      elementY,
+                      rotation: transform.rotation,
+                      zoom: transform.zoom,
+                      absoluteZoom,
                     }
                   );
                 }
 
                 ctx.save();
-                ctx.translate(userImageX, userImageY);
-                ctx.rotate((transformState.currentRotation * Math.PI) / 180);
-
-                // Używamy zmodyfikowanego współczynnika powiększenia
+                ctx.translate(elementX, elementY);
+                ctx.rotate((transform.rotation * Math.PI) / 180);
                 ctx.scale(absoluteZoom, absoluteZoom);
-
-                const userImgWidth = userImg.naturalWidth;
-                const userImgHeight = userImg.naturalHeight;
-                ctx.drawImage(userImg, -userImgWidth / 2, -userImgHeight / 2);
-
+                ctx.drawImage(
+                  element.img,
+                  -element.img.naturalWidth / 2,
+                  -element.img.naturalHeight / 2
+                );
                 ctx.restore();
               }
-
-              if (canvas.toBlob) {
-                const mimeType = format === "jpg" ? "image/jpeg" : "image/png";
-                const quality =
-                  format === "jpg" ? EditorConfig.export.jpgQuality : undefined;
-
-                if (window.Debug) {
-                  Debug.debug("EXPORT", "Generowanie BLOB", {
-                    mimeType,
-                    quality,
-                  });
-                }
-
-                canvas.toBlob(
-                  function (blob) {
-                    downloadUsingBlob(blob);
-                  },
-                  mimeType,
-                  quality
-                );
-              } else {
-                if (window.Debug) {
-                  Debug.debug(
-                    "EXPORT",
-                    "Canvas.toBlob nie jest dostępne, używanie DataURL"
-                  );
-                }
-
-                const dataURL = canvas.toDataURL(
-                  format === "jpg" ? "image/jpeg" : "image/png"
-                );
-                downloadUsingDataURL(dataURL);
-              }
-            } catch (e) {
-              if (window.Debug) {
-                Debug.error("EXPORT", "Błąd przy rysowaniu", e);
-              }
-              console.error("Błąd przy rysowaniu:", e);
-              document.body.removeChild(progressMsg);
-              alert("Wystąpił błąd podczas renderowania obrazu: " + e.message);
-              resolve(false);
-            }
+            });
           }
 
           function downloadUsingBlob(blob) {
             try {
               if (window.Debug) {
-                Debug.debug("EXPORT", "Pobieranie za pomocą Blob", {
+                Debug.debug("EXPORT", "Downloading using Blob", {
                   blobSize: blob.size,
                 });
               }
@@ -347,18 +561,20 @@ const Export = (function () {
                 document.body.removeChild(progressMsg);
 
                 if (window.Debug) {
-                  Debug.info("EXPORT", "Pobieranie zakończone sukcesem");
+                  Debug.info("EXPORT", "Download completed successfully");
                 }
 
                 resolve(true);
               }, 100);
             } catch (e) {
               if (window.Debug) {
-                Debug.error("EXPORT", "Błąd przy pobieraniu (blob)", e);
+                Debug.error("EXPORT", "Error while downloading (blob)", e);
               }
-              console.error("Błąd przy pobieraniu (blob):", e);
+              console.error("Error while downloading (blob):", e);
               document.body.removeChild(progressMsg);
-              alert("Wystąpił błąd podczas pobierania obrazu: " + e.message);
+              alert(
+                "An error occurred while downloading the image: " + e.message
+              );
               resolve(false);
             }
           }
@@ -366,7 +582,7 @@ const Export = (function () {
           function downloadUsingDataURL(dataURL) {
             try {
               if (window.Debug) {
-                Debug.debug("EXPORT", "Pobieranie za pomocą DataURL");
+                Debug.debug("EXPORT", "Downloading using DataURL");
               }
 
               const a = document.createElement("a");
@@ -380,75 +596,30 @@ const Export = (function () {
                 document.body.removeChild(progressMsg);
 
                 if (window.Debug) {
-                  Debug.info("EXPORT", "Pobieranie zakończone sukcesem");
+                  Debug.info("EXPORT", "Download completed successfully");
                 }
 
                 resolve(true);
               }, 100);
             } catch (e) {
               if (window.Debug) {
-                Debug.error("EXPORT", "Błąd przy pobieraniu (dataURL)", e);
+                Debug.error("EXPORT", "Error while downloading (dataURL)", e);
               }
-              console.error("Błąd przy pobieraniu (dataURL):", e);
+              console.error("Error while downloading (dataURL):", e);
               document.body.removeChild(progressMsg);
-              alert("Wystąpił błąd podczas pobierania obrazu: " + e.message);
+              alert(
+                "An error occurred while downloading the image: " + e.message
+              );
               resolve(false);
             }
           }
-
-          mockupImg.onerror = function () {
-            handleImageError(
-              "Nie można załadować obrazu mockupu: " + Elements.mockupImage.src
-            );
-          };
-
-          userImg.onerror = function () {
-            handleImageError(
-              "Nie można załadować obrazu użytkownika: " +
-                Elements.imagePreview.src
-            );
-          };
-
-          mockupImg.onload = function () {
-            if (window.Debug) {
-              Debug.debug("EXPORT", "Załadowano obraz mockupu", {
-                width: mockupImg.naturalWidth,
-                height: mockupImg.naturalHeight,
-              });
-            }
-            imagesLoaded++;
-            if (imagesLoaded === 2) drawAndDownload();
-          };
-
-          userImg.onload = function () {
-            if (window.Debug) {
-              Debug.debug("EXPORT", "Załadowano obraz użytkownika", {
-                width: userImg.naturalWidth,
-                height: userImg.naturalHeight,
-              });
-            }
-            imagesLoaded++;
-            if (imagesLoaded === 2) drawAndDownload();
-          };
-
-          mockupImg.crossOrigin = "Anonymous";
-          userImg.crossOrigin = "Anonymous";
-          const timestamp = new Date().getTime();
-          mockupImg.src = Elements.mockupImage.src + "?t=" + timestamp;
-          userImg.src = Elements.imagePreview.src;
-
-          setTimeout(function () {
-            if (imagesLoaded < 2 && !hasError) {
-              handleImageError("Przekroczono limit czasu ładowania obrazów");
-            }
-          }, 10000);
         } catch (e) {
           if (window.Debug) {
-            Debug.error("EXPORT", "Błąd generowania obrazu", e);
+            Debug.error("EXPORT", "Error generating image", e);
           }
-          console.error("Błąd generowania obrazu:", e);
+          console.error("Error generating image:", e);
           document.body.removeChild(progressMsg);
-          alert("Wystąpił błąd podczas generowania obrazu: " + e.message);
+          alert("An error occurred while generating the image: " + e.message);
           resolve(false);
         }
       }, 100);
@@ -456,68 +627,64 @@ const Export = (function () {
   }
 
   /**
-   * Pobiera wiele mockupów jednocześnie
-   * @param {Array} mockups - Lista mockupów do pobrania
+   * Download multiple mockups at once
+   * @param {Array} mockups - List of mockups to download
    */
   async function downloadMultipleMockups(mockups) {
     if (window.Debug) {
       Debug.info(
         "EXPORT",
-        `Rozpoczęcie pobierania ${mockups.length} mockupów`,
+        `Starting download of ${mockups.length} mockups`,
         mockups
       );
     }
 
-    // Tworzymy element do pokazywania postępu
+    // Create progress indicator
     const progressMsg = document.createElement("div");
     progressMsg.className = "progress-message";
-    progressMsg.textContent = `Trwa generowanie ${mockups.length} obrazów, proszę czekać...`;
+    progressMsg.textContent = `Generating ${mockups.length} images, please wait...`;
     document.body.appendChild(progressMsg);
 
-    // Zapisz aktualny mockup, aby przywrócić go po zakończeniu
+    // Save current mockup to restore it later
     const originalMockup = Mockups.getCurrentMockup();
 
     if (window.Debug) {
-      Debug.debug("EXPORT", "Zapisano oryginalny mockup", originalMockup);
+      Debug.debug("EXPORT", "Saved original mockup", originalMockup);
     }
 
-    // Dla każdego wybranego mockupu
+    // For each selected mockup
     for (let i = 0; i < mockups.length; i++) {
       const mockup = mockups[i];
-      progressMsg.textContent = `Generowanie obrazu ${i + 1} z ${
+      progressMsg.textContent = `Generating image ${i + 1} of ${
         mockups.length
       }...`;
 
       if (window.Debug) {
         Debug.debug(
           "EXPORT",
-          `Generowanie obrazu ${i + 1}/${mockups.length}`,
+          `Generating image ${i + 1}/${mockups.length}`,
           mockup
         );
       }
 
-      // Zmień mockup
+      // Change mockup
       await new Promise((resolve) => {
         Mockups.changeMockup(mockup.path, mockup.name, mockup.id, mockup.model);
-        // Daj czas na załadowanie mockupu
+        // Give time for mockup to load
         setTimeout(resolve, 200);
       });
 
-      // Pobierz obraz - używając modelu i nazwy mockupu w nazwie pliku
-      const fileName = `${mockup.model || "Inne"}_${mockup.name.replace(
+      // Download image - using model and mockup name in filename
+      const fileName = `${mockup.model || "Other"}_${mockup.name.replace(
         /\s+/g,
         "_"
       )}_${i + 1}.png`;
       await generateAndDownloadImage(fileName);
     }
 
-    // Przywróć oryginalny mockup
+    // Restore original mockup
     if (window.Debug) {
-      Debug.debug(
-        "EXPORT",
-        "Przywracanie oryginalnego mockupu",
-        originalMockup
-      );
+      Debug.debug("EXPORT", "Restoring original mockup", originalMockup);
     }
 
     Mockups.changeMockup(
@@ -527,49 +694,51 @@ const Export = (function () {
       originalMockup.model
     );
 
-    // Usuń komunikat o postępie
+    // Remove progress indicator
     document.body.removeChild(progressMsg);
 
     if (window.Debug) {
-      Debug.info("EXPORT", `Pomyślnie wygenerowano ${mockups.length} obrazów`);
+      Debug.info("EXPORT", `Successfully generated ${mockups.length} images`);
     }
 
-    alert(`Pomyślnie wygenerowano ${mockups.length} obrazów!`);
+    alert(`Successfully generated ${mockups.length} images!`);
   }
 
   /**
-   * Inicjalizuje moduł eksportu
+   * Initialize export module
    */
   function init() {
     if (window.Debug) {
-      Debug.info("EXPORT", "Inicjalizacja modułu eksportu");
+      Debug.info("EXPORT", "Initializing export module");
     }
 
-    // Obsługa przycisku pobierania
+    // Download button handler
     Elements.downloadButton.addEventListener("click", function () {
-      if (!UserImage.isImageLoaded()) {
+      // Check if ElementsManager exists and has elements or UserImage is loaded
+      const hasElements =
+        window.ElementsManager && ElementsManager.getElementCount() > 0;
+      const hasUserImage = window.UserImage && UserImage.isImageLoaded();
+
+      if (!hasElements && !hasUserImage) {
         if (window.Debug) {
-          Debug.warn(
-            "EXPORT",
-            "Próba pobrania bez załadowanego obrazu użytkownika"
-          );
+          Debug.warn("EXPORT", "Download attempt without any loaded image");
         }
-        alert("Najpierw wgraj zdjęcie!");
+        alert("Please upload an image first!");
         return;
       }
 
       if (window.Debug) {
-        Debug.debug("EXPORT", "Kliknięto przycisk pobierania");
+        Debug.debug("EXPORT", "Download button clicked");
       }
 
-      // Pokaż dialog wyboru formatu i rozmiaru
+      // Show format and size selection dialog
       showDownloadOptions();
     });
 
-    // Nasłuchuj zdarzenia pobierania wielu mockupów
+    // Listen for downloadSelectedMockups event
     document.addEventListener("downloadSelectedMockups", function (e) {
       if (window.Debug) {
-        Debug.debug("EXPORT", "Odebrano zdarzenie downloadSelectedMockups", {
+        Debug.debug("EXPORT", "Received downloadSelectedMockups event", {
           mockupCount: e.detail.mockups.length,
         });
       }
@@ -577,7 +746,7 @@ const Export = (function () {
     });
   }
 
-  // Zwróć publiczny interfejs modułu
+  // Public interface
   return {
     init,
     showDownloadOptions,
@@ -586,5 +755,5 @@ const Export = (function () {
   };
 })();
 
-// Eksport modułu jako obiekt globalny
+// Export module as global object
 window.Export = Export;

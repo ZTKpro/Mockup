@@ -93,6 +93,16 @@ function initializeModules() {
     console.error("Mockups module not loaded");
   }
 
+  // Initialize element manager for multiple elements support
+  if (window.ElementsManager) {
+    if (window.Debug) {
+      Debug.debug("MAIN", "Initializing elements manager module");
+    }
+    ElementsManager.init();
+  } else {
+    console.error("ElementsManager module not loaded");
+  }
+
   // Initialize export
   if (window.Export) {
     if (window.Debug) {

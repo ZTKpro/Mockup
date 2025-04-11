@@ -12,6 +12,7 @@ const modules = [
   "modules/transformations.js",
   "modules/userImage.js",
   "modules/mockups.js",
+  "modules/elements-manager.js",
   "modules/export.js",
   "modules/ui.js",
   "modules/calibration.js",
