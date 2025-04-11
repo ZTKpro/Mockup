@@ -21,6 +21,10 @@ const modules = [
 // Flaga debugowania
 let loaderDebug = false;
 
+// Monitorowanie statusu ładowania modułów
+const loadedModules = {};
+let allModulesLoaded = false;
+
 // Sprawdź, czy tryb debugowania jest włączony
 function checkDebugMode() {
   const urlParams = new URLSearchParams(window.location.search);
@@ -45,6 +49,8 @@ checkDebugMode();
 // Funkcja do ładowania skryptów po kolei
 function loadScriptsSequentially(scripts, index) {
   if (index >= scripts.length) {
+    allModulesLoaded = true;
+
     if (loaderDebug || (window.Debug && window.Debug.isEnabled())) {
       console.log(
         "%c[LOADER] Wszystkie moduły zostały załadowane",
@@ -53,6 +59,11 @@ function loadScriptsSequentially(scripts, index) {
     } else {
       console.log("Wszystkie moduły zostały załadowane");
     }
+
+    // Wywołaj zdarzenie, gdy wszystkie moduły zostaną załadowane
+    const event = new CustomEvent("allModulesLoaded");
+    document.dispatchEvent(event);
+
     return;
   }
 
@@ -60,6 +71,9 @@ function loadScriptsSequentially(scripts, index) {
   script.src = "js/" + scripts[index];
 
   script.onload = function () {
+    // Oznacz moduł jako załadowany
+    loadedModules[scripts[index]] = true;
+
     if (loaderDebug || (window.Debug && window.Debug.isEnabled())) {
       console.log(
         `%c[LOADER] Załadowano moduł: ${scripts[index]}`,
@@ -82,6 +96,9 @@ function loadScriptsSequentially(scripts, index) {
   };
 
   script.onerror = function () {
+    // Oznacz moduł jako błędny
+    loadedModules[scripts[index]] = false;
+
     if (loaderDebug || (window.Debug && window.Debug.isEnabled())) {
       console.error(
         `%c[LOADER] Błąd ładowania modułu: ${scripts[index]}`,
@@ -90,11 +107,65 @@ function loadScriptsSequentially(scripts, index) {
     } else {
       console.error(`Błąd ładowania modułu: ${scripts[index]}`);
     }
+
+    // Kontynuuj ładowanie pozostałych modułów
     loadScriptsSequentially(scripts, index + 1);
   };
 
   document.head.appendChild(script);
 }
 
+// Funkcja sprawdzająca, czy konkretny moduł został załadowany
+function isModuleLoaded(moduleName) {
+  return !!loadedModules[moduleName];
+}
+
+// Funkcja czekająca na załadowanie wskazanego modułu
+function waitForModule(moduleName) {
+  return new Promise((resolve) => {
+    if (isModuleLoaded(moduleName)) {
+      resolve();
+      return;
+    }
+
+    // Sprawdź co 100ms, czy moduł został załadowany
+    const interval = setInterval(() => {
+      if (isModuleLoaded(moduleName)) {
+        clearInterval(interval);
+        resolve();
+      }
+    }, 100);
+  });
+}
+
+// Funkcja czekająca na załadowanie wszystkich modułów
+function waitForAllModules() {
+  return new Promise((resolve) => {
+    if (allModulesLoaded) {
+      resolve();
+      return;
+    }
+
+    // Nasłuchuj zdarzenia zakończenia ładowania wszystkich modułów
+    document.addEventListener(
+      "allModulesLoaded",
+      function onAllModulesLoaded() {
+        document.removeEventListener("allModulesLoaded", onAllModulesLoaded);
+        resolve();
+      }
+    );
+  });
+}
+
 // Rozpocznij ładowanie modułów
 loadScriptsSequentially(modules, 0);
+
+// Eksportuj pomocnicze funkcje jako obiekty globalne
+window.Loader = {
+  isModuleLoaded,
+  waitForModule,
+  waitForAllModules,
+  getLoadedModules: function () {
+    return { ...loadedModules };
+  },
+};

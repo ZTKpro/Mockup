@@ -342,11 +342,30 @@ const Mockups = (function () {
 
     // Obsługa checkboxów
     const checkboxes = document.querySelectorAll(".mockup-checkbox");
+    if (checkboxes.length === 0 && window.Debug) {
+      Debug.warn("MOCKUPS", "Nie znaleziono żadnych checkboxów mockupów");
+    }
+
     checkboxes.forEach((checkbox) => {
-      checkbox.addEventListener("change", function (e) {
+      // Najpierw usuwamy stare listenery, aby uniknąć duplikacji
+      const newCheckbox = checkbox.cloneNode(true);
+      checkbox.parentNode.replaceChild(newCheckbox, checkbox);
+
+      // Dodajemy nowy listener
+      newCheckbox.addEventListener("change", function (e) {
         e.stopPropagation(); // Zatrzymaj propagację zdarzenia
 
         const mockupDiv = this.closest(".mockup-thumbnail");
+        if (!mockupDiv) {
+          if (window.Debug) {
+            Debug.error(
+              "MOCKUPS",
+              "Nie znaleziono rodzica .mockup-thumbnail dla checkboxa"
+            );
+          }
+          return;
+        }
+
         const mockupPath = mockupDiv.getAttribute("data-mockup");
         const mockupId = parseInt(mockupDiv.getAttribute("data-id"), 10);
         const mockupName = mockupDiv.getAttribute("data-name");
@@ -395,15 +414,21 @@ const Mockups = (function () {
     // Dodaj obsługę przycisku dodawania mockupów
     const addMockupButton = document.querySelector(".add-mockup-button");
     if (addMockupButton) {
-      addMockupButton.addEventListener("click", function () {
+      // Usuwamy stare listenery
+      const newAddButton = addMockupButton.cloneNode(true);
+      addMockupButton.parentNode.replaceChild(newAddButton, addMockupButton);
+
+      // Dodajemy nowy listener
+      newAddButton.addEventListener("click", function () {
         if (window.Debug) {
           Debug.info("MOCKUPS", "Kliknięto przycisk dodawania mockupów");
         }
         window.location.href = "dodaj.html";
       });
+    } else if (window.Debug) {
+      Debug.warn("MOCKUPS", "Nie znaleziono przycisku dodawania mockupów");
     }
   }
-
   /**
    * Konfiguruje nasłuchiwacze dla przycisków zaznaczania
    */
