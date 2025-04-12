@@ -1,6 +1,6 @@
 /**
  * elements-manager.js - Module for managing multiple elements on a mockup
- * Updated with fixed reset functionality
+ * Updated to integrate seamlessly with main upload functionality
  */
 
 const ElementsManager = (function () {
@@ -16,6 +16,7 @@ const ElementsManager = (function () {
 
   // References to DOM elements for rendering
   let elementPreviews = {}; // Object to store element preview elements
+  let uploadHandlersOverridden = false; // Flag to prevent multiple overrides
 
   /**
    * Element object structure:
@@ -55,38 +56,110 @@ const ElementsManager = (function () {
    * Override existing upload handlers
    */
   function overrideUploadHandlers() {
+    if (uploadHandlersOverridden) {
+      return; // Prevent multiple overrides
+    }
+
     if (window.Debug) {
       Debug.debug("ELEMENTS_MANAGER", "Overriding existing upload handlers");
     }
 
-    // Store original UserImage handlers
     if (window.UserImage) {
-      const originalHandleFileSelect = window.UserImage.handleFileSelect;
-      const originalHandleDrop = window.UserImage.handleDrop;
+      // Wait until all elements are loaded
+      setTimeout(() => {
+        // Only override if UserImage has these methods
+        if (typeof window.UserImage.handleFileSelect === "function") {
+          // Create our override for file selection
+          const originalHandleFileSelect = window.UserImage.handleFileSelect;
+          window.UserImage.handleFileSelect = function (e) {
+            if (window.Debug) {
+              Debug.debug("ELEMENTS_MANAGER", "Intercepted file selection");
+            }
+            // Prevent the original handler from running
+            e.stopPropagation();
 
-      // Replace with our handlers that add elements instead
-      window.UserImage.handleFileSelect = function (e) {
-        handleUploadedFiles(e.target.files);
-      };
+            // Use our handler that adds elements
+            handleUploadedFiles(e.target.files);
 
-      window.UserImage.handleDrop = function (e) {
-        e.preventDefault();
-        const dt = e.dataTransfer;
-        const files = dt.files;
-        handleUploadedFiles(files);
+            // Mark as handled to prevent duplicate processing
+            e._handled = true;
+          };
+        }
 
-        // Reset drop area appearance
-        if (Elements.dropArea) {
-          Elements.dropArea.classList.remove("highlight");
+        if (typeof window.UserImage.handleDrop === "function") {
+          // Create our override for drop
+          const originalHandleDrop = window.UserImage.handleDrop;
+          window.UserImage.handleDrop = function (e) {
+            if (window.Debug) {
+              Debug.debug("ELEMENTS_MANAGER", "Intercepted drop event");
+            }
+            e.preventDefault();
+            e.stopPropagation();
+
+            const dt = e.dataTransfer;
+            const files = dt.files;
+            handleUploadedFiles(files);
+
+            // Reset drop area appearance
+            if (Elements.dropArea) {
+              Elements.dropArea.classList.remove("highlight");
+            }
+            if (Elements.uploadText) {
+              Elements.uploadText.style.display = "block";
+            }
+            if (Elements.dropText) {
+              Elements.dropText.style.display = "none";
+            }
+
+            // Mark as handled to prevent duplicate processing
+            e._handled = true;
+          };
         }
-        if (Elements.uploadText) {
-          Elements.uploadText.style.display = "block";
+
+        uploadHandlersOverridden = true;
+
+        if (window.Debug) {
+          Debug.info(
+            "ELEMENTS_MANAGER",
+            "Upload handlers successfully overridden"
+          );
         }
-        if (Elements.dropText) {
-          Elements.dropText.style.display = "none";
-        }
-      };
+      }, 500); // Wait for everything to be loaded properly
     }
+
+    // Also attach directly to the main upload elements
+    setTimeout(() => {
+      const uploadInput = document.getElementById("image-upload");
+      const dropArea = document.getElementById("drop-area");
+
+      if (uploadInput) {
+        uploadInput.addEventListener("change", function (e) {
+          if (window.Debug) {
+            Debug.debug(
+              "ELEMENTS_MANAGER",
+              "Direct handler for file input triggered"
+            );
+          }
+          handleUploadedFiles(e.target.files);
+        });
+      }
+
+      if (dropArea) {
+        dropArea.addEventListener("drop", function (e) {
+          if (window.Debug) {
+            Debug.debug(
+              "ELEMENTS_MANAGER",
+              "Direct handler for drop area triggered"
+            );
+          }
+          e.preventDefault();
+          e.stopPropagation();
+          const dt = e.dataTransfer;
+          const files = dt.files;
+          handleUploadedFiles(files);
+        });
+      }
+    }, 1000);
   }
 
   /**
@@ -102,6 +175,17 @@ const ElementsManager = (function () {
     }
 
     if (!files || files.length === 0) return;
+
+    // Check if we're already processing these files to prevent duplication
+    if (window._currentlyProcessingFiles) {
+      if (window.Debug) {
+        Debug.debug("ELEMENTS_MANAGER", "Skipping duplicate file processing");
+      }
+      return;
+    }
+
+    // Set a flag to prevent duplicate processing
+    window._currentlyProcessingFiles = true;
 
     try {
       // Show loading message
@@ -135,8 +219,30 @@ const ElementsManager = (function () {
         document.body.removeChild(loadingMsg);
 
         if (result.success) {
-          // Add the image as a new element
-          addNewElement(result.imageData);
+          if (window.Debug) {
+            Debug.debug(
+              "ELEMENTS_MANAGER",
+              "Image uploaded successfully, adding as element"
+            );
+          }
+
+          // For backwards compatibility, set the image preview source first
+          if (Elements.imagePreview) {
+            Elements.imagePreview.src = result.imageData;
+            // Hide the original image preview since we're using elements now
+            Elements.imagePreview.style.display = "none";
+          }
+
+          // Only add the element if we don't already have one with this source
+          if (!elements.some((e) => e.src === result.imageData)) {
+            // Add the image as a new element
+            addNewElement(result.imageData);
+          } else if (window.Debug) {
+            Debug.debug(
+              "ELEMENTS_MANAGER",
+              "Element with this source already exists, skipping"
+            );
+          }
 
           // Show controls
           Elements.controls.style.display = "block";
@@ -157,6 +263,9 @@ const ElementsManager = (function () {
         document.body.removeChild(loadingMsg);
         alert("Proszę wybrać plik ze zdjęciem");
       }
+
+      // Clear the processing flag
+      window._currentlyProcessingFiles = false;
     } catch (error) {
       console.error("Error uploading image:", error);
       alert("Wystąpił błąd podczas przesyłania obrazu.");
@@ -180,12 +289,9 @@ const ElementsManager = (function () {
     elementsPanel.innerHTML = `
       <div class="elements-panel-header">
         <h3>Elementy</h3>
-        <div class="elements-panel-actions">
-          <button id="add-element-btn" class="action-btn" title="Dodaj nowy element">+</button>
-        </div>
       </div>
       <div class="elements-list" id="elements-list">
-        <div class="no-elements-message">Brak dodanych elementów. Kliknij + aby dodać element.</div>
+        <div class="no-elements-message">Brak dodanych elementów. Kliknij + aby dodać element lub przeciągnij obraz na główny obszar.</div>
       </div>
     `;
 
@@ -346,83 +452,6 @@ const ElementsManager = (function () {
         background-color: #636e72;
       }
       
-      /* Styles for the element upload panel */
-      .element-upload-panel {
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        background-color: rgba(0, 0, 0, 0.7);
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        z-index: 9999;
-      }
-      
-      .element-upload-dialog {
-        background-color: white;
-        border-radius: 8px;
-        padding: 20px;
-        width: 90%;
-        max-width: 400px;
-        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
-      }
-      
-      .element-upload-dialog h3 {
-        margin-top: 0;
-        margin-bottom: 15px;
-        text-align: center;
-      }
-      
-      .upload-drop-area {
-        border: 2px dashed #3498db;
-        border-radius: 8px;
-        padding: 30px;
-        text-align: center;
-        margin-bottom: 15px;
-        cursor: pointer;
-      }
-      
-      .upload-drop-area.highlight {
-        background-color: rgba(52, 152, 219, 0.1);
-      }
-      
-      .upload-drop-area p {
-        margin: 10px 0;
-        color: #7f8c8d;
-      }
-      
-      .element-upload-buttons {
-        display: flex;
-        justify-content: space-between;
-      }
-      
-      .element-upload-buttons button {
-        padding: 8px 20px;
-        border-radius: 4px;
-        border: none;
-        cursor: pointer;
-      }
-      
-      .cancel-upload-btn {
-        background-color: #e74c3c;
-        color: white;
-      }
-      
-      .element-preview-container {
-        text-align: center;
-        margin: 15px 0;
-        display: none;
-      }
-      
-      .element-preview-container img {
-        max-width: 100%;
-        max-height: 200px;
-        border: 1px solid #ddd;
-        border-radius: 4px;
-      }
-      
       /* Element preview styles */
       .editor-container {
         position: relative;
@@ -455,35 +484,18 @@ const ElementsManager = (function () {
       Debug.debug("ELEMENTS_MANAGER", "Setting up event listeners");
     }
 
-    // Add new element button
-    const addElementBtn = document.getElementById("add-element-btn");
-    if (addElementBtn) {
-      addElementBtn.addEventListener("click", showElementUploadPanel);
-    }
-
-    // Handle user image loaded event - integrate with the first element
+  
+    // Handle user image loaded event - for compatibility with old code
     document.addEventListener("userImageLoaded", function () {
       if (window.Debug) {
         Debug.debug("ELEMENTS_MANAGER", "User image loaded event received");
       }
 
-      // Only do the automatic adding when coming from the old system
-      if (
-        window.UserImage &&
-        UserImage.isImageLoaded() &&
-        !window._elementsManagerInitialized
-      ) {
-        window._elementsManagerInitialized = true;
+      // Mark that initialization has occurred to prevent double processing
+      window._elementsManagerInitialized = true;
 
-        // If we don't have any elements yet and imagePreview has a source
-        if (
-          elements.length === 0 &&
-          Elements.imagePreview &&
-          Elements.imagePreview.src
-        ) {
-          addNewElement(Elements.imagePreview.src);
-        }
-      }
+      // We no longer automatically add an element here since our upload handler does that
+      // This eliminates the duplication issue
     });
 
     // Handle transformChange events only for the active element
@@ -592,139 +604,6 @@ const ElementsManager = (function () {
         }
       }
     });
-  }
-
-  /**
-   * Show the element upload panel
-   */
-  function showElementUploadPanel() {
-    if (window.Debug) {
-      Debug.debug("ELEMENTS_MANAGER", "Showing element upload panel");
-    }
-
-    // Create upload panel
-    const uploadPanel = document.createElement("div");
-    uploadPanel.className = "element-upload-panel";
-
-    uploadPanel.innerHTML = `
-      <div class="element-upload-dialog">
-        <h3>Dodaj nowy element</h3>
-        
-        <div class="upload-drop-area" id="element-drop-area">
-          <p>Przeciągnij i upuść obraz tutaj</p>
-          <p>lub</p>
-          <button class="upload-label">Wybierz plik</button>
-          <input type="file" id="element-upload-input" accept="image/*" style="display: none;">
-        </div>
-        
-        <div class="element-preview-container" id="element-preview-container">
-          <img id="element-preview-image" src="" alt="Podgląd">
-        </div>
-        
-        <div class="element-upload-buttons">
-          <button class="cancel-upload-btn" id="cancel-upload-btn">Anuluj</button>
-          <button class="action-btn" id="confirm-upload-btn" disabled>Dodaj element</button>
-        </div>
-      </div>
-    `;
-
-    document.body.appendChild(uploadPanel);
-
-    // Set up upload panel event listeners
-    const dropArea = document.getElementById("element-drop-area");
-    const uploadInput = document.getElementById("element-upload-input");
-    const cancelBtn = document.getElementById("cancel-upload-btn");
-    const confirmBtn = document.getElementById("confirm-upload-btn");
-
-    // File selection via button
-    const uploadLabel = dropArea.querySelector(".upload-label");
-    if (uploadLabel) {
-      uploadLabel.addEventListener("click", function () {
-        uploadInput.click();
-      });
-    }
-
-    // File input change handler
-    uploadInput.addEventListener("change", function (e) {
-      handleElementFileSelect(e.target.files);
-    });
-
-    // Drag & drop handlers
-    ["dragenter", "dragover"].forEach((eventName) => {
-      dropArea.addEventListener(eventName, function (e) {
-        e.preventDefault();
-        e.stopPropagation();
-        dropArea.classList.add("highlight");
-      });
-    });
-
-    ["dragleave", "drop"].forEach((eventName) => {
-      dropArea.addEventListener(eventName, function (e) {
-        e.preventDefault();
-        e.stopPropagation();
-        dropArea.classList.remove("highlight");
-      });
-    });
-
-    dropArea.addEventListener("drop", function (e) {
-      const dt = e.dataTransfer;
-      const files = dt.files;
-      handleElementFileSelect(files);
-    });
-
-    // Cancel button
-    cancelBtn.addEventListener("click", function () {
-      document.body.removeChild(uploadPanel);
-    });
-
-    // Confirm button
-    confirmBtn.addEventListener("click", function () {
-      // Get the preview image
-      const previewImage = document.getElementById("element-preview-image");
-      if (previewImage.src) {
-        addNewElement(previewImage.src);
-        document.body.removeChild(uploadPanel);
-      }
-    });
-  }
-
-  /**
-   * Handle element file selection
-   * @param {FileList} files - Selected files
-   */
-  function handleElementFileSelect(files) {
-    if (window.Debug) {
-      Debug.debug("ELEMENTS_MANAGER", "Handling element file selection");
-    }
-
-    if (files.length === 0) return;
-
-    const file = files[0];
-    if (!file.type.match("image.*")) {
-      alert("Proszę wybrać plik graficzny");
-      return;
-    }
-
-    // Read the file
-    const reader = new FileReader();
-    reader.onload = function (e) {
-      const imageDataUrl = e.target.result;
-
-      // Show preview
-      const previewContainer = document.getElementById(
-        "element-preview-container"
-      );
-      const previewImage = document.getElementById("element-preview-image");
-
-      previewImage.src = imageDataUrl;
-      previewContainer.style.display = "block";
-
-      // Enable the confirm button
-      const confirmBtn = document.getElementById("confirm-upload-btn");
-      confirmBtn.disabled = false;
-    };
-
-    reader.readAsDataURL(file);
   }
 
   /**
@@ -860,7 +739,7 @@ const ElementsManager = (function () {
     if (!listContainer) return;
 
     if (elements.length === 0) {
-      listContainer.innerHTML = `<div class="no-elements-message">Brak dodanych elementów. Kliknij + aby dodać element.</div>`;
+      listContainer.innerHTML = `<div class="no-elements-message">Brak dodanych elementów. Kliknij + aby dodać element lub przeciągnij obraz na główny obszar.</div>`;
       return;
     }
 
