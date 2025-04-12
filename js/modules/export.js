@@ -291,27 +291,9 @@ const Export = (function () {
               // Create a layer ordering flag
               const imageOnTop = transformState.isLayerFront;
 
-              if (imageOnTop) {
-                // Draw mockup first, then user image
-                ctx.drawImage(
-                  mockupImg,
-                  mockupX,
-                  mockupY,
-                  drawWidth,
-                  drawHeight
-                );
-                drawLegacyUserImage(ctx, mockupScaleFactor, size);
-              } else {
-                // Draw user image first, then mockup
-                drawLegacyUserImage(ctx, mockupScaleFactor, size);
-                ctx.drawImage(
-                  mockupImg,
-                  mockupX,
-                  mockupY,
-                  drawWidth,
-                  drawHeight
-                );
-              }
+              // Always draw user image first, then mockup on top (ignore imageOnTop flag)
+              drawLegacyUserImage(ctx, mockupScaleFactor, size);
+              ctx.drawImage(mockupImg, mockupX, mockupY, drawWidth, drawHeight);
             }
 
             // Convert to blob and download
@@ -457,11 +439,8 @@ const Export = (function () {
             const canvasCenterY = size / 2;
             const sizeScalingRatio = size / REFERENCE_SIZE;
 
-            // Determine if mockup should be on top (last element's layer index > mockup's index)
-            const mockupLayerIndex = 0; // Mockup is typically at layer 0
-            const mockupOnTop = elementImages.some(
-              (el) => el.transformations.layerIndex < mockupLayerIndex
-            );
+            // Ensure mockup is always on top
+            const mockupLayerIndex = Number.MAX_SAFE_INTEGER;
 
             // Sort elements by layer index (bottom to top)
             elementImages.sort(

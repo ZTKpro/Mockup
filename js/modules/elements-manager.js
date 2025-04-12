@@ -444,14 +444,6 @@ const ElementsManager = (function () {
         font-style: italic;
       }
       
-      .element-up-btn, .element-down-btn {
-        background-color: #7f8c8d;
-      }
-      
-      .element-up-btn:hover, .element-down-btn:hover {
-        background-color: #636e72;
-      }
-      
       /* Element preview styles */
       .editor-container {
         position: relative;

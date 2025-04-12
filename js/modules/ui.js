@@ -254,6 +254,10 @@ const UI = (function () {
         Debug.info("UI", "Kliknięto przycisk resetowania transformacji");
       }
 
+      if (window.Transformations) {
+        Transformations.resetTransformations();
+      }
+
       const resetEvent = new CustomEvent("resetTransformations");
       document.dispatchEvent(resetEvent);
     });
@@ -267,7 +271,6 @@ const UI = (function () {
       const centerEvent = new CustomEvent("centerImage");
       document.dispatchEvent(centerEvent);
     });
-
   }
 
   /**
