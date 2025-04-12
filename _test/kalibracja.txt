@@ -1,0 +1,74 @@
+To jest plik w którym się znajdują parametry kiedy poprawnie się generuje mockup:
+
+400x500
+Powiększenie: 17%
+ABSOLUTE_ZOOM_FACTOR = 0.019;
+
+400x500
+Powiększenie: 40%
+ABSOLUTE_ZOOM_FACTOR = 0.020;
+
+500x900
+Powiększenie: 33%
+ABSOLUTE_ZOOM_FACTOR = 0.0135
+
+500x900
+Powiększenie: 55%
+ABSOLUTE_ZOOM_FACTOR = 0.0135
+
+600x500
+Powiększenie: 13%
+ABSOLUTE_ZOOM_FACTOR = 0.02;
+
+600x500
+Powiększenie: 40%
+ABSOLUTE_ZOOM_FACTOR = 0.02;
+
+700x400
+Powiększenie: 19%
+ABSOLUTE_ZOOM_FACTOR = 0.018;
+
+700x400
+Powiększenie: 58%
+ABSOLUTE_ZOOM_FACTOR = 0.017
+
+700x900
+Powiększenie: 14%
+ABSOLUTE_ZOOM_FACTOR = 0.014
+
+700x900
+Powiększenie: 33%
+ABSOLUTE_ZOOM_FACTOR = 0.0135;
+
+700x900
+Powiększenie: 55%
+ABSOLUTE_ZOOM_FACTOR = 0.0135;
+
+800x700
+Powiększenie: 13%
+ABSOLUTE_ZOOM_FACTOR = 0.014
+
+800x700
+Powiększenie: 38%
+ABSOLUTE_ZOOM_FACTOR = 0.015
+
+800x700
+Powiększenie: 63%
+ABSOLUTE_ZOOM_FACTOR = 0.015
+
+800x900
+Powiększenie: 13%
+ABSOLUTE_ZOOM_FACTOR = 0.013
+
+800x900
+Powiększenie: 55%
+ABSOLUTE_ZOOM_FACTOR = 0.0135
+
+1000x1000
+Powiększenie: 11%
+ABSOLUTE_ZOOM_FACTOR = 0.0124;
+
+1000x1000
+Powiększenie: 55%
+ABSOLUTE_ZOOM_FACTOR = 0.0121;
+

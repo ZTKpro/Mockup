@@ -1,6 +1,7 @@
 /**
  * export.js - Module for exporting and downloading images
  * Modified to support multiple elements on a mockup and standardized positioning
+ * Updated with dynamic zoom scaling based on image dimensions
  */
 
 const Export = (function () {
@@ -9,14 +10,24 @@ const Export = (function () {
     Debug.info("EXPORT", "Initializing export module");
   }
 
-  // Constant zoom factor for consistent scaling across devices
-  const ABSOLUTE_ZOOM_FACTOR = 0.015;
-
-  // NEW: Constants for standardized position scaling
-  const ABSOLUTE_POSITION_FACTOR = 0.0017; // Scale factor for position coordinates
+  // Dynamic zoom factor calculation based on image dimensions and zoom percentage
+  function calculateZoomFactor(imageWidth, imageHeight, zoomPercentage = 100) {
+    const normalizedArea = (imageWidth * imageHeight) / 1000000;
+    const highZoomAdjustment =
+      zoomPercentage > 50 && normalizedArea <= 0.25
+        ? 0.002 * Math.min(1, (zoomPercentage - 50) / 30)
+        : 0;
+    const slope = (0.012 - 0.019) / (0.9 - 0.2);
+    let factor = 0.019 + slope * (normalizedArea - 0.2);
+    factor = Math.max(0.012, Math.min(0.019, factor));
+    return factor + highZoomAdjustment;
+  }
 
   // Reference size for which scaling factors work correctly
   const REFERENCE_SIZE = 1200;
+
+  // NEW: Constants for standardized position scaling
+  const ABSOLUTE_POSITION_FACTOR = 0.0017; // Scale factor for position coordinates
 
   /**
    * Show download options dialog
@@ -371,10 +382,15 @@ const Export = (function () {
                   const userImageX = canvasCenterX + scaledX;
                   const userImageY = canvasCenterY + scaledY;
 
-                  // Calculate zoom factor based on output size
+                  // Calculate zoom factor based on image dimensions, zoom percentage, and output size
+                  const dynamicZoomFactor = calculateZoomFactor(
+                    userImg.naturalWidth,
+                    userImg.naturalHeight,
+                    transformState.currentZoom
+                  );
                   const absoluteZoom =
                     transformState.currentZoom *
-                    ABSOLUTE_ZOOM_FACTOR *
+                    dynamicZoomFactor *
                     sizeScalingRatio;
 
                   if (window.Debug) {
@@ -389,7 +405,10 @@ const Export = (function () {
                         rotation: transformState.currentRotation,
                         currentZoomPercent: transformState.currentZoom,
                         sizeScalingRatio,
+                        dynamicZoomFactor,
                         absoluteZoom,
+                        imageWidth: userImg.naturalWidth,
+                        imageHeight: userImg.naturalHeight,
                       }
                     );
                   }
@@ -502,9 +521,14 @@ const Export = (function () {
                 const elementX = canvasCenterX + scaledX;
                 const elementY = canvasCenterY + scaledY;
 
-                // Calculate absolute zoom
+                // Calculate dynamic zoom factor based on image dimensions and zoom percentage
+                const dynamicZoomFactor = calculateZoomFactor(
+                  element.img.naturalWidth,
+                  element.img.naturalHeight,
+                  transform.zoom
+                );
                 const absoluteZoom =
-                  transform.zoom * ABSOLUTE_ZOOM_FACTOR * sizeScalingRatio;
+                  transform.zoom * dynamicZoomFactor * sizeScalingRatio;
 
                 if (window.Debug) {
                   Debug.debug(
@@ -517,7 +541,10 @@ const Export = (function () {
                       elementY,
                       rotation: transform.rotation,
                       zoom: transform.zoom,
+                      dynamicZoomFactor,
                       absoluteZoom,
+                      imageWidth: element.img.naturalWidth,
+                      imageHeight: element.img.naturalHeight,
                     }
                   );
                 }
