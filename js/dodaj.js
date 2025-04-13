@@ -231,7 +231,7 @@ async function fetchMockups() {
  */
 function generateMockupManager(mockups) {
   if (window.Debug) {
-    Debug.debug("DODAJ", "Generating mockup manager interface");
+    Debug.debug("DODAJ", "Generowanie mockup manager interface");
   }
 
   // Hide loading indicator
@@ -513,9 +513,9 @@ async function handleFiles(e) {
   // Get model from input - spaces are preserved
   let model = modelInput.value.trim();
 
-  // If model is empty after trimming, use "Other"
+  // If model is empty after trimming, use "Inne"
   if (!model) {
-    model = "Other";
+    model = "Inne";
   }
 
   if (window.Debug) {
@@ -599,7 +599,7 @@ async function handleFiles(e) {
     if (uploadIndicator) {
       uploadIndicator.style.display = "none";
     }
-    alert("An error occurred while uploading files: " + error.message);
+    alert("Wystąpił błąd podczas przesyłania plików: " + error.message);
     if (fileInput) {
       fileInput.value = "";
     }

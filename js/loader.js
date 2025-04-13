@@ -172,7 +172,7 @@ function registerInitFunction(fn) {
     // If DOM and modules are already loaded, run immediately
     fn();
   } else {
-    // Otherwise, queue for later execution
+    // Innewise, queue for later execution
     pendingInitFunctions.push(fn);
   }
 }

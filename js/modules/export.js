@@ -45,10 +45,10 @@ const Export = (function () {
     dialogBox.className = "download-dialog";
 
     dialogBox.innerHTML = `
-      <h3>Download Options</h3>
+      <h3>Opcje pobierania</h3>
       
       <div style="margin-bottom: 15px;">
-        <label style="display: block; margin-bottom: 5px; font-weight: bold;">File Format:</label>
+        <label style="display: block; margin-bottom: 5px; font-weight: bold;"> Format pliku:</label>
         <select id="format-select" style="width: 100%; padding: 8px; border-radius: 4px; border: 1px solid #ddd;">
           <option value="png">PNG</option>
           <option value="jpg">JPG</option>
@@ -56,7 +56,7 @@ const Export = (function () {
       </div>
       
       <div style="margin-bottom: 15px;">
-        <label style="display: block; margin-bottom: 5px; font-weight: bold;">Size:</label>
+        <label style="display: block; margin-bottom: 5px; font-weight: bold;">Rozmiar:</label>
         <select id="size-select" style="width: 100%; padding: 8px; border-radius: 4px; border: 1px solid #ddd;">
           ${EditorConfig.export.availableSizes
             .map(
@@ -67,8 +67,8 @@ const Export = (function () {
       </div>
       
       <div class="download-dialog-buttons">
-        <button id="cancel-download" class="cancel">Cancel</button>
-        <button id="confirm-download" class="confirm">Download</button>
+        <button id="cancel-download" class="cancel">Anuluj</button>
+        <button id="confirm-download" class="confirm">Pobierz</button>
       </div>
     `;
 
@@ -107,7 +107,7 @@ const Export = (function () {
         const fileName = `${sanitizedName}_${size}x${size}.${format}`;
 
         if (window.Debug) {
-          Debug.debug("EXPORT", `Generating file: ${fileName}`);
+          Debug.debug("EXPORT", `Generowanie file: ${fileName}`);
         }
 
         generateAndDownloadImage(fileName, format, parseInt(size));
@@ -136,7 +136,7 @@ const Export = (function () {
 
     const progressMsg = document.createElement("div");
     progressMsg.className = "progress-message";
-    progressMsg.textContent = "Generating image, please wait...";
+    progressMsg.textContent = "Generowanie obrazu, proszę czekać...";
     document.body.appendChild(progressMsg);
 
     return new Promise((resolve) => {
@@ -175,11 +175,11 @@ const Export = (function () {
           const mockupLoadPromise = new Promise((resolve, reject) => {
             mockupImg.onload = resolve;
             mockupImg.onerror = () =>
-              reject(new Error("Failed to load mockup image"));
+              reject(new Error("Nie udało się załadować obrazu mockupu"));
 
             // Timeout to prevent hanging
             setTimeout(
-              () => reject(new Error("Mockup image load timeout")),
+              () => reject(new Error("Przekroczony czas ładowania obrazu mockupu")),
               10000
             );
           });
@@ -244,7 +244,7 @@ const Export = (function () {
                     img.onload = resolve;
                     img.onerror = () =>
                       reject(
-                        new Error(`Failed to load element ${i + 1} image`)
+                        new Error(`Nie udało się załadować elementu ${i + 1} image`)
                       );
                     img.src = element.src;
 
@@ -314,7 +314,7 @@ const Export = (function () {
                 format === "jpg" ? EditorConfig.export.jpgQuality : undefined;
 
               if (window.Debug) {
-                Debug.debug("EXPORT", "Generating BLOB", {
+                Debug.debug("EXPORT", "Generowanie BLOB", {
                   mimeType,
                   quality,
                 });
@@ -345,7 +345,7 @@ const Export = (function () {
               Debug.error("EXPORT", "Error loading or drawing images", error);
             }
             document.body.removeChild(progressMsg);
-            alert("Error: " + error.message);
+            alert("Błąd: " + error.message);
             resolve(false);
           }
 
@@ -431,9 +431,9 @@ const Export = (function () {
               };
 
               userImg.onerror = () =>
-                reject(new Error("Failed to load user image"));
+                reject(new Error("Nie udało się załadować obrazu użytkownika"));
               setTimeout(
-                () => reject(new Error("User image load timeout")),
+                () => reject(new Error("Przekroczony czas ładowania obrazu użytkownika")),
                 10000
               );
             });
@@ -638,11 +638,11 @@ const Export = (function () {
           }
         } catch (e) {
           if (window.Debug) {
-            Debug.error("EXPORT", "Error generating image", e);
+            Debug.error("EXPORT", "Error Generowanie image", e);
           }
-          console.error("Error generating image:", e);
+          console.error("Error Generowanie image:", e);
           document.body.removeChild(progressMsg);
-          alert("An error occurred while generating the image: " + e.message);
+          alert("An error occurred while Generowanie the image: " + e.message);
           resolve(false);
         }
       }, 100);
@@ -665,7 +665,7 @@ const Export = (function () {
     // Create progress indicator
     const progressMsg = document.createElement("div");
     progressMsg.className = "progress-message";
-    progressMsg.textContent = `Generating ${mockups.length} images, please wait...`;
+    progressMsg.textContent = `Generowanie ${mockups.length} obrazów, proszę czekać...`;
     document.body.appendChild(progressMsg);
 
     // Save current mockup to restore it later
@@ -678,14 +678,14 @@ const Export = (function () {
     // For each selected mockup
     for (let i = 0; i < mockups.length; i++) {
       const mockup = mockups[i];
-      progressMsg.textContent = `Generating image ${i + 1} of ${
+      progressMsg.textContent = `Generowanie image ${i + 1} of ${
         mockups.length
       }...`;
 
       if (window.Debug) {
         Debug.debug(
           "EXPORT",
-          `Generating image ${i + 1}/${mockups.length}`,
+          `Generowanie image ${i + 1}/${mockups.length}`,
           mockup
         );
       }
@@ -698,7 +698,7 @@ const Export = (function () {
       });
 
       // Download image - using model and mockup name in filename
-      const fileName = `${mockup.model || "Other"}_${mockup.name.replace(
+      const fileName = `${mockup.model || "Inne"}_${mockup.name.replace(
         /\s+/g,
         "_"
       )}_${i + 1}.png`;
@@ -724,7 +724,7 @@ const Export = (function () {
       Debug.info("EXPORT", `Successfully generated ${mockups.length} images`);
     }
 
-    alert(`Successfully generated ${mockups.length} images!`);
+    alert(`Pomyślnie wygenerowano ${mockups.length} mockup!`);
   }
 
   /**
@@ -746,7 +746,7 @@ const Export = (function () {
         if (window.Debug) {
           Debug.warn("EXPORT", "Download attempt without any loaded image");
         }
-        alert("Please upload an image first!");
+        alert("Najpierw prześlij obraz!");
         return;
       }
 

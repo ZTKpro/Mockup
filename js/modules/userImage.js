@@ -166,7 +166,7 @@ const UserImage = (function () {
           if (window.Debug) {
             Debug.error("USER_IMAGE", "Błąd przesyłania obrazu", result.error);
           }
-          alert("Error: " + (result.error || "Failed to upload image"));
+          alert("Error: " + (result.error || " Nie udało się przesłać obrazu"));
         }
       } catch (error) {
         if (window.Debug) {
@@ -176,7 +176,7 @@ const UserImage = (function () {
             error
           );
         } else {
-          console.error("Error uploading image:", error);
+          console.error("Błąd przesyłania obrazu:", error);
         }
         alert("Wystąpił błąd podczas przesyłania obrazu.");
       }

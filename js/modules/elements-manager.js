@@ -257,7 +257,7 @@ const ElementsManager = (function () {
           const event = new CustomEvent("userImageLoaded");
           document.dispatchEvent(event);
         } else {
-          alert("Error: " + (result.error || "Failed to upload image"));
+          alert("Error: " + (result.error || " Nie udało się przesłać obrazu"));
         }
       } else {
         document.body.removeChild(loadingMsg);
@@ -267,7 +267,7 @@ const ElementsManager = (function () {
       // Clear the processing flag
       window._currentlyProcessingFiles = false;
     } catch (error) {
-      console.error("Error uploading image:", error);
+      console.error("Błąd przesyłania obrazu:", error);
       alert("Wystąpił błąd podczas przesyłania obrazu.");
     }
   }
