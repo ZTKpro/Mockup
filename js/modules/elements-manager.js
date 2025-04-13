@@ -257,7 +257,7 @@ const ElementsManager = (function () {
           const event = new CustomEvent("userImageLoaded");
           document.dispatchEvent(event);
         } else {
-          alert("Error: " + (result.error || " Nie udało się przesłać obrazu"));
+          alert("Błąd: " + (result.error || " Nie udało się przesłać obrazu"));
         }
       } else {
         document.body.removeChild(loadingMsg);

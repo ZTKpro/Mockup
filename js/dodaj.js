@@ -391,7 +391,7 @@ async function deleteMockup(mockupId, mockupItem) {
       Debug.error("DODAJ", "Exception while deleting mockup", error);
     }
     console.error("Error deleting mockup:", error);
-    alert("An error occurred while deleting the mockup.");
+    alert("Wystąpił błąd podczas usuwania mockupu.");
   }
 }
 
@@ -459,7 +459,7 @@ async function updateMockupModel(mockupId, newModel, mockupItem) {
       Debug.error("DODAJ", "Exception while updating mockup model", error);
     }
     console.error("Error updating mockup model:", error);
-    alert("An error occurred while updating the mockup model.");
+    alert("Wystąpił błąd podczas aktualizacji modelu mockupu.");
   }
 }
 
@@ -506,7 +506,7 @@ async function handleFiles(e) {
         "Selected files in wrong format - only PNG is accepted"
       );
     }
-    alert("Only PNG files can be uploaded! Please select again.");
+    alert("Tylko pliki PNG mogą być przesyłane! Wybierz ponownie.");
     return;
   }
 
@@ -557,7 +557,9 @@ async function handleFiles(e) {
       const result = await response.json();
 
       if (!result.success) {
-        throw new Error(result.error || `Failed to upload file ${file.name}`);
+        throw new Error(
+          result.error || `Nie udało się przesłać pliku ${file.name}`
+        );
       }
 
       if (window.Debug) {
@@ -595,7 +597,7 @@ async function handleFiles(e) {
       Debug.error("DODAJ", "Error uploading files", error);
     }
 
-    console.error("Error uploading files:", error);
+    console.error("Błąd przesyłania plików:", error);
     if (uploadIndicator) {
       uploadIndicator.style.display = "none";
     }

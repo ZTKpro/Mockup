@@ -252,7 +252,9 @@ const Export = (function () {
                     setTimeout(
                       () =>
                         reject(
-                          new Error(`Element ${i + 1} image load timeout`)
+                          new Error(
+                            `Przekroczony czas ładowania elementu ${i + 1}`
+                          )
                         ),
                       10000
                     );
@@ -595,9 +597,7 @@ const Export = (function () {
               }
               console.error("Error while downloading (blob):", e);
               document.body.removeChild(progressMsg);
-              alert(
-                "An error occurred while downloading the image: " + e.message
-              );
+              alert("Wystąpił błąd przy pobieraniu obrazu: " + e.message);
               resolve(false);
             }
           }
