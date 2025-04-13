@@ -1,6 +1,7 @@
 /**
  * elements-manager.js - Module for managing multiple elements on a mockup
  * Updated to integrate seamlessly with main upload functionality
+ * Modified to allow deletion of the only element
  */
 
 const ElementsManager = (function () {
@@ -476,7 +477,6 @@ const ElementsManager = (function () {
       Debug.debug("ELEMENTS_MANAGER", "Setting up event listeners");
     }
 
-  
     // Handle user image loaded event - for compatibility with old code
     document.addEventListener("userImageLoaded", function () {
       if (window.Debug) {
@@ -759,9 +759,7 @@ const ElementsManager = (function () {
             <button class="action-btn element-control-btn element-down-btn" title="Warstwa niżej" ${
               i === 0 ? "disabled" : ""
             }>↓</button>
-            <button class="action-btn element-control-btn delete-btn" title="Usuń element" ${
-              elements.length === 1 ? "disabled" : ""
-            }>×</button>
+            <button class="action-btn element-control-btn delete-btn" title="Usuń element">×</button>
           </div>
         </div>
       `;
@@ -818,11 +816,8 @@ const ElementsManager = (function () {
         const item = this.closest(".element-item");
         const index = parseInt(item.getAttribute("data-index"));
 
-        // Confirm deletion
-        if (
-          elements.length > 1 &&
-          confirm("Czy na pewno chcesz usunąć ten element?")
-        ) {
+        // Confirm deletion - allow deletion of the last element
+        if (confirm("Czy na pewno chcesz usunąć ten element?")) {
           deleteElement(index);
         }
       });
@@ -1007,6 +1002,44 @@ const ElementsManager = (function () {
 
     // Remove the element
     elements.splice(index, 1);
+
+    // Reset state if we removed the last element
+    if (elements.length === 0) {
+      activeElementIndex = -1;
+
+      // Hide controls
+      if (Elements.controls) {
+        Elements.controls.style.display = "none";
+      }
+
+      if (Elements.dragInstruction) {
+        Elements.dragInstruction.style.display = "none";
+      }
+
+      // Show upload area again
+      if (Elements.uploadText) {
+        Elements.uploadText.style.display = "block";
+      }
+
+      // Make the original image preview visible again
+      if (Elements.imagePreview) {
+        Elements.imagePreview.style.display = "block";
+        Elements.imagePreview.src = "./img/placeholder.png"; // Reset to placeholder
+      }
+
+      // Set UserImage as not loaded
+      if (window.UserImage) {
+        UserImage.setImageLoaded(false);
+      }
+
+      // Clear element previews
+      createOrUpdateElementPreviews();
+
+      // Update the elements list to show "no elements" message
+      updateElementsList();
+
+      return;
+    }
 
     // Update active element index
     if (activeElementIndex === index) {

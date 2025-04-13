@@ -354,6 +354,25 @@ async function deleteMockup(mockupId, mockupItem) {
       Debug.info("DODAJ", `Deleting mockup with ID: ${mockupId}`);
     }
 
+    // Get the model group reference before any DOM manipulation
+    const modelGroup = mockupItem ? mockupItem.closest(".model-group") : null;
+
+    // Store model name and count for later use
+    let modelName = "";
+    let itemCount = 0;
+
+    if (modelGroup) {
+      const modelHeader = modelGroup.querySelector(".model-header");
+      if (modelHeader) {
+        const headerMatch =
+          modelHeader.textContent.match(/^(.*?)\s*\((\d+)\)$/);
+        if (headerMatch) {
+          modelName = headerMatch[1].trim();
+          itemCount = parseInt(headerMatch[2], 10) - 1; // Subtract the one being deleted
+        }
+      }
+    }
+
     const response = await fetch(`/api/mockups/${mockupId}`, {
       method: "DELETE",
     });
@@ -361,24 +380,27 @@ async function deleteMockup(mockupId, mockupItem) {
     const result = await response.json();
 
     if (result.success) {
-      // Remove the mockup item from the DOM
-      mockupItem.remove();
-
       if (window.Debug) {
         Debug.debug("DODAJ", `Successfully deleted mockup ID: ${mockupId}`);
       }
 
-      // Check if the model group is now empty
-      const modelGroup = mockupItem.closest(".model-group");
-      const remainingItems = modelGroup.querySelectorAll(".mockup-item").length;
+      // Remove the mockup item from the DOM if it exists
+      if (mockupItem) {
+        mockupItem.remove();
+      }
 
-      if (remainingItems === 0) {
-        modelGroup.remove();
-      } else {
-        // Update count in model header
-        const modelHeader = modelGroup.querySelector(".model-header");
-        const modelName = modelHeader.textContent.split("(")[0].trim();
-        modelHeader.textContent = `${modelName} (${remainingItems})`;
+      // Update the model group if it exists
+      if (modelGroup) {
+        if (itemCount <= 0) {
+          // If this was the last mockup in the group, remove the entire group
+          modelGroup.remove();
+        } else if (modelName) {
+          // Otherwise update the count
+          const modelHeader = modelGroup.querySelector(".model-header");
+          if (modelHeader) {
+            modelHeader.textContent = `${modelName} (${itemCount})`;
+          }
+        }
       }
     } else {
       if (window.Debug) {
@@ -391,7 +413,11 @@ async function deleteMockup(mockupId, mockupItem) {
       Debug.error("DODAJ", "Exception while deleting mockup", error);
     }
     console.error("Error deleting mockup:", error);
-    alert("Wystąpił błąd podczas usuwania mockupu.");
+
+    // Instead of showing generic error message, reload the gallery
+    // This way, if the deletion was successful on the server but failed on the client,
+    // the UI will still be updated correctly
+    initializeMockupGallery();
   }
 }
 
@@ -441,10 +467,6 @@ async function updateMockupModel(mockupId, newModel, mockupItem) {
           `Successfully updated mockup model to: ${newModel}`
         );
       }
-
-      // Update the model text in the DOM
-      const modelElement = mockupItem.querySelector(".mockup-model");
-      modelElement.textContent = newModel;
 
       // Reload gallery to reflect changes in grouping
       initializeMockupGallery();

@@ -1,7 +1,7 @@
 /**
  * export.js - Module for exporting and downloading images
  * Modified to support multiple elements on a mockup and standardized positioning
- * Updated with dynamic zoom scaling based on image dimensions
+ * Updated with dynamic zoom and position scaling based on image dimensions
  */
 
 const Export = (function () {
@@ -23,11 +23,21 @@ const Export = (function () {
     return factor + highZoomAdjustment;
   }
 
+  function calculatePositionFactor(imageWidth, imageHeight) {
+    const normalizedArea = (imageWidth * imageHeight) / 1000000;
+    const baseValue = 0.0016;
+    const slope = 0.001;
+
+    let factor = baseValue + slope * (normalizedArea - 0.2);
+
+    const minFactor = 0.0014;
+    const maxFactor = 0.003;
+    factor = Math.max(minFactor, Math.min(maxFactor, factor));
+
+    return factor;
+  }
   // Reference size for which scaling factors work correctly
   const REFERENCE_SIZE = 1200;
-
-  // NEW: Constants for standardized position scaling
-  const ABSOLUTE_POSITION_FACTOR = 0.0017; // Scale factor for position coordinates
 
   /**
    * Show download options dialog
@@ -179,7 +189,8 @@ const Export = (function () {
 
             // Timeout to prevent hanging
             setTimeout(
-              () => reject(new Error("Przekroczony czas ładowania obrazu mockupu")),
+              () =>
+                reject(new Error("Przekroczony czas ładowania obrazu mockupu")),
               10000
             );
           });
@@ -244,7 +255,9 @@ const Export = (function () {
                     img.onload = resolve;
                     img.onerror = () =>
                       reject(
-                        new Error(`Nie udało się załadować elementu ${i + 1} image`)
+                        new Error(
+                          `Nie udało się załadować elementu ${i + 1} image`
+                        )
                       );
                     img.src = element.src;
 
@@ -369,15 +382,21 @@ const Export = (function () {
                   // Calculate size scaling ratio based on output size
                   const sizeScalingRatio = size / REFERENCE_SIZE;
 
-                  // NEW: Apply standardized position scaling with ABSOLUTE_POSITION_FACTOR
+                  // Calculate dynamic position factor based on image dimensions
+                  const dynamicPositionFactor = calculatePositionFactor(
+                    userImg.naturalWidth,
+                    userImg.naturalHeight
+                  );
+
+                  // Apply dynamic position scaling
                   const scaledX =
                     transformState.currentX *
-                    ABSOLUTE_POSITION_FACTOR *
+                    dynamicPositionFactor *
                     sizeScalingRatio *
                     size;
                   const scaledY =
                     transformState.currentY *
-                    ABSOLUTE_POSITION_FACTOR *
+                    dynamicPositionFactor *
                     sizeScalingRatio *
                     size;
 
@@ -407,6 +426,7 @@ const Export = (function () {
                         rotation: transformState.currentRotation,
                         currentZoomPercent: transformState.currentZoom,
                         sizeScalingRatio,
+                        dynamicPositionFactor,
                         dynamicZoomFactor,
                         absoluteZoom,
                         imageWidth: userImg.naturalWidth,
@@ -435,7 +455,10 @@ const Export = (function () {
               userImg.onerror = () =>
                 reject(new Error("Nie udało się załadować obrazu użytkownika"));
               setTimeout(
-                () => reject(new Error("Przekroczony czas ładowania obrazu użytkownika")),
+                () =>
+                  reject(
+                    new Error("Przekroczony czas ładowania obrazu użytkownika")
+                  ),
                 10000
               );
             });
@@ -508,17 +531,17 @@ const Export = (function () {
                 const element = layer.data;
                 const transform = element.transformations;
 
-                // NEW: Apply standardized position scaling with ABSOLUTE_POSITION_FACTOR
+                // Calculate dynamic position factor based on image dimensions
+                const dynamicPositionFactor = calculatePositionFactor(
+                  element.img.naturalWidth,
+                  element.img.naturalHeight
+                );
+
+                // Apply dynamic position scaling
                 const scaledX =
-                  transform.x *
-                  ABSOLUTE_POSITION_FACTOR *
-                  sizeScalingRatio *
-                  size;
+                  transform.x * dynamicPositionFactor * sizeScalingRatio * size;
                 const scaledY =
-                  transform.y *
-                  ABSOLUTE_POSITION_FACTOR *
-                  sizeScalingRatio *
-                  size;
+                  transform.y * dynamicPositionFactor * sizeScalingRatio * size;
 
                 const elementX = canvasCenterX + scaledX;
                 const elementY = canvasCenterY + scaledY;
@@ -543,6 +566,7 @@ const Export = (function () {
                       elementY,
                       rotation: transform.rotation,
                       zoom: transform.zoom,
+                      dynamicPositionFactor,
                       dynamicZoomFactor,
                       absoluteZoom,
                       imageWidth: element.img.naturalWidth,
@@ -630,9 +654,7 @@ const Export = (function () {
               }
               console.error("Error while downloading (dataURL):", e);
               document.body.removeChild(progressMsg);
-              alert(
-                "Wystąpił błąd przy pobieraniu obrazu: " + e.message
-              );
+              alert("Wystąpił błąd przy pobieraniu obrazu: " + e.message);
               resolve(false);
             }
           }
