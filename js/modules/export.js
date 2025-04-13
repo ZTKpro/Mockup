@@ -631,7 +631,7 @@ const Export = (function () {
               console.error("Error while downloading (dataURL):", e);
               document.body.removeChild(progressMsg);
               alert(
-                "An error occurred while downloading the image: " + e.message
+                "Wystąpił błąd przy pobieraniu obrazu: " + e.message
               );
               resolve(false);
             }
@@ -642,7 +642,7 @@ const Export = (function () {
           }
           console.error("Error Generowanie image:", e);
           document.body.removeChild(progressMsg);
-          alert("An error occurred while Generowanie the image: " + e.message);
+          alert("Wystąpił błąd podczas generowania obrazu: " + e.message);
           resolve(false);
         }
       }, 100);

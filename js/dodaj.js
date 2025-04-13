@@ -148,7 +148,7 @@ async function initializeMockupGallery() {
     }
     console.error("Error initializing mockup gallery:", error);
     if (loadingIndicator) {
-      loadingIndicator.textContent = "Error loading mockups.";
+      loadingIndicator.textContent = "Nie udało się załadować mockupu.";
     }
   }
 }
@@ -384,7 +384,7 @@ async function deleteMockup(mockupId, mockupItem) {
       if (window.Debug) {
         Debug.error("DODAJ", `Error deleting mockup: ${result.error}`);
       }
-      alert(`Error deleting mockup: ${result.error}`);
+      alert(`Błąd usuwania mockupu: ${result.error}`);
     }
   } catch (error) {
     if (window.Debug) {
@@ -452,7 +452,7 @@ async function updateMockupModel(mockupId, newModel, mockupItem) {
       if (window.Debug) {
         Debug.error("DODAJ", `Error updating mockup model: ${result.error}`);
       }
-      alert(`Error updating mockup model: ${result.error}`);
+      alert(`Błąd aktualizacji modelu mockupu: ${result.error}`);
     }
   } catch (error) {
     if (window.Debug) {
