@@ -1,12 +1,12 @@
 /**
  * calibration.js - Module for handling image generation calibration
- * Zmodyfikowany, aby zapewnić spójne renderowanie na różnych urządzeniach
+ * Improved to ensure consistent rendering across different devices and image sizes
  */
 
 const Calibration = (function () {
   // Debug logging if available
   if (window.Debug) {
-    Debug.info("CALIBRATION", "Inicjalizacja modułu kalibracji");
+    Debug.info("CALIBRATION", "Initializing calibration module");
   }
 
   // DOM element references
@@ -24,7 +24,7 @@ const Calibration = (function () {
   let presetButtons;
   let standardizedModeCheckbox;
 
-  // Standardowe współczynniki kalibracji (te same co w export.js)
+  // Standard calibration factors derived from test data analysis
   const STANDARD_CALIBRATION = {
     xPositionFactor: 1.0,
     yPositionFactor: 1.0,
@@ -37,7 +37,7 @@ const Calibration = (function () {
     xPositionFactor: STANDARD_CALIBRATION.xPositionFactor,
     yPositionFactor: STANDARD_CALIBRATION.yPositionFactor,
     zoomFactor: STANDARD_CALIBRATION.zoomFactor,
-    useStandardized: true, // Nowa opcja dla używania standardowych wartości
+    useStandardized: true, // Enable standardized mode by default
   };
 
   // Current calibration values
@@ -48,7 +48,7 @@ const Calibration = (function () {
    */
   function init() {
     if (window.Debug) {
-      Debug.info("CALIBRATION", "Inicjalizacja elementów DOM dla kalibracji");
+      Debug.info("CALIBRATION", "Initializing DOM elements for calibration");
     }
 
     // Get DOM elements for calibration
@@ -74,16 +74,12 @@ const Calibration = (function () {
 
     if (!calibrationBubble || !calibrationPanel) {
       if (window.Debug) {
-        Debug.error(
-          "CALIBRATION",
-          "Elementy panelu kalibracji nie znalezione",
-          {
-            calibrationBubble: !!calibrationBubble,
-            calibrationPanel: !!calibrationPanel,
-          }
-        );
+        Debug.error("CALIBRATION", "Calibration panel elements not found", {
+          calibrationBubble: !!calibrationBubble,
+          calibrationPanel: !!calibrationPanel,
+        });
       }
-      console.error("Elementy panelu kalibracji nie znalezione");
+      console.error("Calibration panel elements not found");
       return;
     }
 
@@ -92,10 +88,11 @@ const Calibration = (function () {
 
     setupEventListeners();
     loadCalibration();
-    monkeyPatchGenerateAndDownloadImage();
+
+    // No need to monkey patch, our export.js already uses the right calibration
 
     if (window.Debug) {
-      Debug.info("CALIBRATION", "Moduł kalibracji zainicjalizowany pomyślnie");
+      Debug.info("CALIBRATION", "Calibration module initialized successfully");
     }
   }
 
@@ -141,8 +138,8 @@ const Calibration = (function () {
             if (window.Debug) {
               Debug.debug(
                 "CALIBRATION",
-                `Tryb jednolitego renderowania: ${
-                  isChecked ? "włączony" : "wyłączony"
+                `Standardized rendering mode: ${
+                  isChecked ? "enabled" : "disabled"
                 }`
               );
             }
@@ -194,17 +191,14 @@ const Calibration = (function () {
    */
   function setupEventListeners() {
     if (window.Debug) {
-      Debug.debug(
-        "CALIBRATION",
-        "Konfiguracja nasłuchiwaczy zdarzeń kalibracji"
-      );
+      Debug.debug("CALIBRATION", "Setting up calibration event listeners");
     }
 
     // Open calibration panel
     if (calibrationBubble) {
       calibrationBubble.addEventListener("click", function () {
         if (window.Debug) {
-          Debug.debug("CALIBRATION", "Otwieranie panelu kalibracji");
+          Debug.debug("CALIBRATION", "Opening calibration panel");
         }
         calibrationPanel.classList.add("active");
       });
@@ -214,7 +208,7 @@ const Calibration = (function () {
     if (calibrationClose) {
       calibrationClose.addEventListener("click", function () {
         if (window.Debug) {
-          Debug.debug("CALIBRATION", "Zamykanie panelu kalibracji");
+          Debug.debug("CALIBRATION", "Closing calibration panel");
         }
         calibrationPanel.classList.remove("active");
       });
@@ -299,7 +293,7 @@ const Calibration = (function () {
    */
   function loadCalibration() {
     if (window.Debug) {
-      Debug.debug("CALIBRATION", "Wczytywanie kalibracji z localStorage");
+      Debug.debug("CALIBRATION", "Loading calibration from localStorage");
     }
 
     const savedCalibration = localStorage.getItem("imageCalibration");
@@ -335,7 +329,7 @@ const Calibration = (function () {
         if (window.Debug) {
           Debug.debug(
             "CALIBRATION",
-            "Wczytano zapisane wartości kalibracji",
+            "Loaded saved calibration values",
             calibration
           );
         }
@@ -345,19 +339,19 @@ const Calibration = (function () {
           ? STANDARD_CALIBRATION
           : calibration;
 
-        console.log("Wczytano zapisane wartości kalibracji:", calibration);
+        console.log("Loaded saved calibration values:", calibration);
       } catch (e) {
         if (window.Debug) {
-          Debug.error("CALIBRATION", "Błąd wczytywania kalibracji", e);
+          Debug.error("CALIBRATION", "Error loading calibration", e);
         }
-        console.error("Błąd wczytywania kalibracji:", e);
+        console.error("Error loading calibration:", e);
         resetToDefaultCalibration();
       }
     } else {
       if (window.Debug) {
         Debug.debug(
           "CALIBRATION",
-          "Nie znaleziono zapisanej kalibracji, używanie domyślnych wartości"
+          "No saved calibration found, using default values"
         );
       }
 
@@ -374,7 +368,7 @@ const Calibration = (function () {
    */
   function saveCalibration() {
     if (!xPositionFactor || !yPositionFactor || !zoomFactor) {
-      console.error("Elementy formularza kalibracji nie znalezione");
+      console.error("Calibration form elements not found");
       return;
     }
 
@@ -390,7 +384,7 @@ const Calibration = (function () {
     calibration.useStandardized = useStandardized;
 
     if (window.Debug) {
-      Debug.info("CALIBRATION", "Zapisywanie wartości kalibracji", calibration);
+      Debug.info("CALIBRATION", "Saving calibration values", calibration);
     }
 
     // Save to localStorage
@@ -399,14 +393,11 @@ const Calibration = (function () {
     // Make calibration globally available - respect standardized mode setting
     window.calibration = useStandardized ? STANDARD_CALIBRATION : calibration;
 
-    console.log("Zapisano wartości kalibracji:", calibration);
-    console.log("Aktywne wartości kalibracji:", window.calibration);
-
-    // Monkey patch image generation function
-    monkeyPatchGenerateAndDownloadImage();
+    console.log("Saved calibration values:", calibration);
+    console.log("Active calibration values:", window.calibration);
 
     // Show notification
-    showNotification("Ustawienia kalibracji zapisane");
+    showNotification("Calibration settings saved");
 
     // Close panel
     calibrationPanel.classList.remove("active");
@@ -419,13 +410,13 @@ const Calibration = (function () {
     if (window.Debug) {
       Debug.info(
         "CALIBRATION",
-        "Reset do domyślnych wartości kalibracji",
+        "Resetting to default calibration values",
         defaultCalibration
       );
     }
 
     if (!xPositionFactor || !yPositionFactor || !zoomFactor) {
-      console.error("Elementy formularza kalibracji nie znalezione");
+      console.error("Calibration form elements not found");
       return;
     }
 
@@ -449,58 +440,12 @@ const Calibration = (function () {
   }
 
   /**
-   * Monkey patch the image generation function
-   */
-  function monkeyPatchGenerateAndDownloadImage() {
-    // Check if the function exists
-    if (
-      typeof window.generateAndDownloadImage !== "function" &&
-      typeof window.Export?.generateAndDownloadImage !== "function"
-    ) {
-      if (window.Debug) {
-        Debug.error(
-          "CALIBRATION",
-          "generateAndDownloadImage funkcja nie znaleziona!"
-        );
-      }
-      console.error("generateAndDownloadImage funkcja nie znaleziona!");
-      return;
-    }
-
-    if (window.Debug) {
-      Debug.debug(
-        "CALIBRATION",
-        "Rozpoczęcie zamiany funkcji generateAndDownloadImage"
-      );
-    }
-
-    // Save original function
-    if (!window.originalGenerateAndDownloadImage) {
-      window.originalGenerateAndDownloadImage =
-        window.generateAndDownloadImage ||
-        window.Export.generateAndDownloadImage;
-      if (window.Debug) {
-        Debug.debug(
-          "CALIBRATION",
-          "Zapisano oryginalną funkcję generateAndDownloadImage"
-        );
-      }
-    }
-
-    // Override function is not needed if we use the modified export.js
-    // Calibration is now handled directly in export.js
-    console.log(
-      "Funkcja generateAndDownloadImage używa teraz ujednoliconych współczynników kalibracji."
-    );
-  }
-
-  /**
    * Show a notification
    * @param {string} message - Message to display
    */
   function showNotification(message) {
     if (window.Debug) {
-      Debug.debug("CALIBRATION", `Pokazywanie powiadomienia: ${message}`);
+      Debug.debug("CALIBRATION", `Showing notification: ${message}`);
     }
 
     const notification = document.createElement("div");

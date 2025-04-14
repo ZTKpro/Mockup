@@ -1,7 +1,6 @@
 /**
  * export.js - Module for exporting and downloading images
- * Modified to support multiple elements on a mockup and standardized positioning
- * Updated with dynamic zoom and position scaling based on image dimensions
+ * Modified with improved calibration based on test data
  */
 
 const Export = (function () {
@@ -10,34 +9,114 @@ const Export = (function () {
     Debug.info("EXPORT", "Initializing export module");
   }
 
-  // Dynamic zoom factor calculation based on image dimensions and zoom percentage
+  // Reference size for which scaling factors work correctly
+  const REFERENCE_SIZE = 1200;
+
+  /**
+   * Calculate zoom factor based on image dimensions and desired zoom percentage
+   * Improved implementation based on test data from kalibracja.txt
+   * @param {number} imageWidth - Width of the image in pixels
+   * @param {number} imageHeight - Height of the image in pixels
+   * @param {number} zoomPercentage - Desired zoom level (default: 100)
+   * @returns {number} - Calculated zoom factor
+   */
   function calculateZoomFactor(imageWidth, imageHeight, zoomPercentage = 100) {
+    // Calculate normalized area (in millions of pixels)
     const normalizedArea = (imageWidth * imageHeight) / 1000000;
-    const highZoomAdjustment =
-      zoomPercentage > 50 && normalizedArea <= 0.25
-        ? 0.002 * Math.min(1, (zoomPercentage - 50) / 30)
-        : 0;
-    const slope = (0.012 - 0.019) / (0.9 - 0.2);
-    let factor = 0.019 + slope * (normalizedArea - 0.2);
-    factor = Math.max(0.012, Math.min(0.019, factor));
-    return factor + highZoomAdjustment;
+
+    // Determine base factor based on image dimensions and aspect ratio
+    let baseFactor;
+    const aspectRatio =
+      Math.max(imageWidth, imageHeight) / Math.min(imageWidth, imageHeight);
+
+    if (normalizedArea <= 0.25) {
+      // Small images (0-0.25 MP)
+      baseFactor = 0.019;
+    } else if (normalizedArea <= 0.4) {
+      // Medium images (0.25-0.4 MP)
+      baseFactor = 0.017;
+    } else if (normalizedArea <= 0.6) {
+      // Large images (0.4-0.6 MP)
+      baseFactor = 0.015;
+    } else if (normalizedArea <= 0.8) {
+      // Larger images (0.6-0.8 MP)
+      baseFactor = 0.0135;
+    } else {
+      // Very large images (0.8+ MP)
+      baseFactor = 0.0125;
+    }
+
+    // Apply aspect ratio adjustment
+    if (aspectRatio > 1.5) {
+      // Elongated images need slightly different calibration
+      baseFactor = Math.max(0.0125, baseFactor - 0.001);
+    }
+
+    // Apply zoom level adjustment
+    let zoomAdjustment = 0;
+    if (zoomPercentage > 50) {
+      // Higher zoom needs higher factor for small/medium images
+      if (normalizedArea <= 0.4) {
+        zoomAdjustment = 0.001 * Math.min(1, (zoomPercentage - 50) / 30);
+      }
+    } else if (zoomPercentage < 20) {
+      // Very low zoom needs lower factor
+      zoomAdjustment = -0.0005 * Math.min(1, (20 - zoomPercentage) / 10);
+    }
+
+    if (window.Debug) {
+      Debug.debug("EXPORT", "Zoom factor calculation", {
+        imageWidth,
+        imageHeight,
+        normalizedArea,
+        zoomPercentage,
+        aspectRatio,
+        baseFactor,
+        zoomAdjustment,
+        finalFactor: baseFactor + zoomAdjustment,
+      });
+    }
+
+    return baseFactor + zoomAdjustment;
   }
 
+  /**
+   * Calculate position factor based on image dimensions
+   * @param {number} imageWidth - Width of the image in pixels
+   * @param {number} imageHeight - Height of the image in pixels
+   * @returns {number} - Calculated position factor
+   */
   function calculatePositionFactor(imageWidth, imageHeight) {
     const normalizedArea = (imageWidth * imageHeight) / 1000000;
-    const baseValue = 0.0016;
-    const slope = 0.001;
 
-    let factor = baseValue + slope * (normalizedArea - 0.2);
+    // Base position factor with progressive scale
+    let factor;
 
-    const minFactor = 0.0014;
-    const maxFactor = 0.003;
-    factor = Math.max(minFactor, Math.min(maxFactor, factor));
+    if (normalizedArea <= 0.25) {
+      // Small images need more precision in positioning
+      factor = 0.0022;
+    } else if (normalizedArea <= 0.5) {
+      // Medium images
+      factor = 0.0018;
+    } else if (normalizedArea <= 0.8) {
+      // Large images
+      factor = 0.0016;
+    } else {
+      // Very large images
+      factor = 0.0014;
+    }
+
+    if (window.Debug) {
+      Debug.debug("EXPORT", "Position factor calculation", {
+        imageWidth,
+        imageHeight,
+        normalizedArea,
+        factor,
+      });
+    }
 
     return factor;
   }
-  // Reference size for which scaling factors work correctly
-  const REFERENCE_SIZE = 1200;
 
   /**
    * Show download options dialog
@@ -117,7 +196,7 @@ const Export = (function () {
         const fileName = `${sanitizedName}_${size}x${size}.${format}`;
 
         if (window.Debug) {
-          Debug.debug("EXPORT", `Generowanie file: ${fileName}`);
+          Debug.debug("EXPORT", `Generating file: ${fileName}`);
         }
 
         generateAndDownloadImage(fileName, format, parseInt(size));
@@ -314,11 +393,8 @@ const Export = (function () {
                 Debug.debug("EXPORT", "Using legacy mode (single image)");
               }
 
-              // Create a layer ordering flag
-              const imageOnTop = transformState.isLayerFront;
-
               // Always draw user image first, then mockup on top (ignore imageOnTop flag)
-              drawLegacyUserImage(ctx, mockupScaleFactor, size);
+              await drawLegacyUserImage(ctx, mockupScaleFactor, size);
               ctx.drawImage(mockupImg, mockupX, mockupY, drawWidth, drawHeight);
             }
 
@@ -329,7 +405,7 @@ const Export = (function () {
                 format === "jpg" ? EditorConfig.export.jpgQuality : undefined;
 
               if (window.Debug) {
-                Debug.debug("EXPORT", "Generowanie BLOB", {
+                Debug.debug("EXPORT", "Generating BLOB", {
                   mimeType,
                   quality,
                 });
@@ -364,7 +440,7 @@ const Export = (function () {
             resolve(false);
           }
 
-          function drawLegacyUserImage(ctx, mockupScaleFactor, size) {
+          async function drawLegacyUserImage(ctx, mockupScaleFactor, size) {
             if (window.Debug) {
               Debug.debug("EXPORT", "Drawing legacy user image");
             }
@@ -660,9 +736,9 @@ const Export = (function () {
           }
         } catch (e) {
           if (window.Debug) {
-            Debug.error("EXPORT", "Error Generowanie image", e);
+            Debug.error("EXPORT", "Error generating image", e);
           }
-          console.error("Error Generowanie image:", e);
+          console.error("Error generating image:", e);
           document.body.removeChild(progressMsg);
           alert("Wystąpił błąd podczas generowania obrazu: " + e.message);
           resolve(false);
@@ -687,7 +763,7 @@ const Export = (function () {
     // Create progress indicator
     const progressMsg = document.createElement("div");
     progressMsg.className = "progress-message";
-    progressMsg.textContent = `Generowanie ${mockups.length} obrazów, proszę czekać...`;
+    progressMsg.textContent = `Generating ${mockups.length} images, please wait...`;
     document.body.appendChild(progressMsg);
 
     // Save current mockup to restore it later
@@ -700,14 +776,14 @@ const Export = (function () {
     // For each selected mockup
     for (let i = 0; i < mockups.length; i++) {
       const mockup = mockups[i];
-      progressMsg.textContent = `Generowanie image ${i + 1} of ${
+      progressMsg.textContent = `Generating image ${i + 1} of ${
         mockups.length
       }...`;
 
       if (window.Debug) {
         Debug.debug(
           "EXPORT",
-          `Generowanie image ${i + 1}/${mockups.length}`,
+          `Generating image ${i + 1}/${mockups.length}`,
           mockup
         );
       }
@@ -746,7 +822,7 @@ const Export = (function () {
       Debug.info("EXPORT", `Successfully generated ${mockups.length} images`);
     }
 
-    alert(`Pomyślnie wygenerowano ${mockups.length} mockup!`);
+    alert(`Successfully generated ${mockups.length} mockup(s)!`);
   }
 
   /**
@@ -768,7 +844,7 @@ const Export = (function () {
         if (window.Debug) {
           Debug.warn("EXPORT", "Download attempt without any loaded image");
         }
-        alert("Najpierw prześlij obraz!");
+        alert("Please upload an image first!");
         return;
       }
 
