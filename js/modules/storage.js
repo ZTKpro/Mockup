@@ -1,5 +1,5 @@
 /**
- * storage.js - Plik zawierający funkcje do zarządzania pamięcią lokalną
+ * storage.js - Plik zawierający funkcje do zarządzania pamięcią lokalną i serwerową
  */
 
 const Storage = (function () {
@@ -182,6 +182,162 @@ const Storage = (function () {
     return null;
   }
 
+  /**
+   * Zapisuje elementy dla określonego mockupu na serwerze
+   * @param {number} mockupId - ID mockupu
+   * @param {Array} elements - Tablica obiektów elementów
+   * @returns {Promise} - Promise rozwiązujący się do sukcesu/porażki
+   */
+  async function saveElementsForMockup(mockupId, elements) {
+    if (!mockupId) {
+      if (window.Debug) {
+        Debug.warn(
+          "STORAGE",
+          "Nieprawidłowe ID mockupu dla zapisywania elementów",
+          mockupId
+        );
+      }
+      return Promise.reject(new Error("Nieprawidłowe ID mockupu"));
+    }
+
+    if (window.Debug) {
+      Debug.debug(
+        "STORAGE",
+        `Zapisywanie ${elements.length} elementów dla mockupu ID=${mockupId} na serwer`
+      );
+    }
+
+    try {
+      // Klonuj elementy aby uniknąć problemów z referencjami
+      const elementsToSave = JSON.parse(JSON.stringify(elements));
+
+      // Wyślij na serwer
+      const response = await fetch(`/api/mockup-elements/${mockupId}`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ elements: elementsToSave }),
+      });
+
+      const result = await response.json();
+
+      if (!result.success) {
+        throw new Error(result.error || "Nieznany błąd zapisywania elementów");
+      }
+
+      if (window.Debug) {
+        Debug.debug(
+          "STORAGE",
+          `Pomyślnie zapisano elementy na serwerze dla mockupu ID=${mockupId}`
+        );
+      }
+
+      return result;
+    } catch (error) {
+      if (window.Debug) {
+        Debug.error("STORAGE", "Błąd zapisywania elementów na serwerze", error);
+      }
+      console.error("Błąd zapisywania elementów na serwerze:", error);
+      return Promise.reject(error);
+    }
+  }
+
+  /**
+   * Wczytuje elementy dla określonego mockupu z serwera
+   * @param {number} mockupId - ID mockupu
+   * @returns {Promise<Array>} - Promise rozwiązujący się do tablicy obiektów elementów
+   */
+  async function loadElementsForMockup(mockupId) {
+    if (!mockupId) {
+      if (window.Debug) {
+        Debug.warn(
+          "STORAGE",
+          "Nieprawidłowe ID mockupu dla wczytywania elementów",
+          mockupId
+        );
+      }
+      return Promise.resolve(null);
+    }
+
+    if (window.Debug) {
+      Debug.debug(
+        "STORAGE",
+        `Wczytywanie elementów dla mockupu ID=${mockupId} z serwera`
+      );
+    }
+
+    try {
+      // Pobierz z serwera
+      const response = await fetch(`/api/mockup-elements/${mockupId}`);
+      const result = await response.json();
+
+      if (!result.success) {
+        throw new Error(result.error || "Nieznany błąd wczytywania elementów");
+      }
+
+      if (window.Debug) {
+        const elementsCount = result.elements ? result.elements.length : 0;
+        Debug.debug(
+          "STORAGE",
+          `Wczytano ${elementsCount} elementów z serwera dla mockupu ID=${mockupId}`
+        );
+      }
+
+      return result.elements || [];
+    } catch (error) {
+      if (window.Debug) {
+        Debug.error("STORAGE", "Błąd wczytywania elementów z serwera", error);
+      }
+      console.error("Błąd wczytywania elementów z serwera:", error);
+      return Promise.resolve([]);
+    }
+  }
+
+  /**
+   * Usuwa elementy dla określonego mockupu z serwera
+   * @param {number} mockupId - ID mockupu
+   * @returns {Promise} - Promise rozwiązujący się do sukcesu/porażki
+   */
+  async function deleteElementsForMockup(mockupId) {
+    if (!mockupId) return Promise.resolve();
+
+    if (window.Debug) {
+      Debug.debug(
+        "STORAGE",
+        `Usuwanie elementów dla mockupu ID=${mockupId} z serwera`
+      );
+    }
+
+    try {
+      // Usuń z serwera
+      const response = await fetch(`/api/mockup-elements/${mockupId}`, {
+        method: "DELETE",
+      });
+
+      const result = await response.json();
+
+      if (!result.success) {
+        throw new Error(result.error || "Nieznany błąd usuwania elementów");
+      }
+
+      if (window.Debug) {
+        Debug.debug(
+          "STORAGE",
+          `Pomyślnie usunięto elementy z serwera dla mockupu ID=${mockupId}`
+        );
+      }
+
+      return result;
+    } catch (error) {
+      if (window.Debug) {
+        Debug.error("STORAGE", "Błąd usuwania elementów z serwera", error);
+      }
+      console.error("Błąd usuwania elementów z serwera:", error);
+      return Promise.reject(error);
+    }
+  }
+
   // Publiczny interfejs modułu
   return {
     saveCurrentMockupParameters,
@@ -190,6 +346,11 @@ const Storage = (function () {
     loadParametersFromLocalStorage,
     saveCalibration,
     loadCalibration,
+
+    // Nowe metody dla elementów
+    saveElementsForMockup,
+    loadElementsForMockup,
+    deleteElementsForMockup,
   };
 })();
 

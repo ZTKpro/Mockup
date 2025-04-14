@@ -17,6 +17,12 @@ if (isDebugMode) {
 // Create upload directories if they don't exist
 const uploadDir = path.join(__dirname, "uploads");
 const mockupDir = path.join(uploadDir, "mockups");
+const elementsDir = path.join(__dirname, "uploads", "elements");
+
+if (!fs.existsSync(elementsDir)) {
+  if (isDebugMode) console.log(`Creating directory: ${elementsDir}`);
+  fs.mkdirSync(elementsDir, { recursive: true });
+}
 
 // Ensure directories exist
 [uploadDir, mockupDir].forEach((dir) => {
@@ -132,6 +138,101 @@ const upload = multer({
   limits: {
     fileSize: 10 * 1024 * 1024, // 10MB limit
   },
+});
+
+app.post(
+  "/api/mockup-elements/:mockupId",
+  express.json({ limit: "50mb" }),
+  (req, res) => {
+    try {
+      const mockupId = req.params.mockupId;
+      const elements = req.body.elements;
+
+      if (isDebugMode) {
+        console.log(
+          `Saving ${elements.length} elements for mockup ID=${mockupId}`
+        );
+      }
+
+      // Create a file path for the elements JSON
+      const filePath = path.join(elementsDir, `${mockupId}.json`);
+
+      // Write elements to the file
+      fs.writeFileSync(filePath, JSON.stringify(elements));
+
+      res.json({ success: true, message: "Elements saved successfully" });
+    } catch (error) {
+      console.error("Error saving elements:", error);
+      if (isDebugMode) {
+        console.log(`Error saving elements: ${error.message}`);
+      }
+      res.status(500).json({ success: false, error: "Error saving elements" });
+    }
+  }
+);
+
+app.get("/api/mockup-elements/:mockupId", (req, res) => {
+  try {
+    const mockupId = req.params.mockupId;
+    const filePath = path.join(elementsDir, `${mockupId}.json`);
+
+    if (isDebugMode) {
+      console.log(`Loading elements for mockup ID=${mockupId}`);
+    }
+
+    // Check if file exists
+    if (fs.existsSync(filePath)) {
+      // Read and parse the file
+      const elementsData = fs.readFileSync(filePath, "utf8");
+      const elements = JSON.parse(elementsData);
+
+      if (isDebugMode) {
+        console.log(
+          `Loaded ${elements.length} elements for mockup ID=${mockupId}`
+        );
+      }
+
+      res.json({ success: true, elements });
+    } else {
+      if (isDebugMode) {
+        console.log(`No elements found for mockup ID=${mockupId}`);
+      }
+      res.json({ success: true, elements: [] });
+    }
+  } catch (error) {
+    console.error("Error loading elements:", error);
+    if (isDebugMode) {
+      console.log(`Error loading elements: ${error.message}`);
+    }
+    res.status(500).json({ success: false, error: "Error loading elements" });
+  }
+});
+
+// Endpoint to delete elements for a mockup
+app.delete("/api/mockup-elements/:mockupId", (req, res) => {
+  try {
+    const mockupId = req.params.mockupId;
+    const filePath = path.join(elementsDir, `${mockupId}.json`);
+
+    if (isDebugMode) {
+      console.log(`Deleting elements for mockup ID=${mockupId}`);
+    }
+
+    // Check if file exists
+    if (fs.existsSync(filePath)) {
+      // Delete the file
+      fs.unlinkSync(filePath);
+      res.json({ success: true, message: "Elements deleted successfully" });
+    } else {
+      res.json({ success: true, message: "No elements to delete" });
+    }
+  } catch (error) {
+    console.error("Error deleting elements:", error);
+    if (isDebugMode) {
+      console.log(`Error deleting elements: ${error.message}`);
+    }
+    res.status(500).json({ success: false, error: "Error deleting elements" });
+  }
 });
 
 // API endpoint to upload mockups - these are still saved to disk

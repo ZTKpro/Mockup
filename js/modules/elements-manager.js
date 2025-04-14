@@ -1,292 +1,255 @@
 /**
- * elements-manager.js - Module for managing multiple elements on a mockup
- * Updated to integrate seamlessly with main upload functionality
- * Modified to allow deletion of the only element
+ * elements-manager.js - Moduł zarządzania wieloma elementami na mockupie
+ * Zaktualizowany o obsługę zapisu elementów na serwerze
  */
 
 const ElementsManager = (function () {
-  // Debug initialization
+  // Inicjalizacja debugowania
   if (window.Debug) {
-    Debug.info("ELEMENTS_MANAGER", "Initializing elements manager module");
+    Debug.info(
+      "ELEMENTS_MANAGER",
+      "Inicjalizacja modułu zarządzania elementami"
+    );
   }
 
-  // Module state
-  let elements = []; // Array of element objects
-  let activeElementIndex = -1; // Index of currently selected element
-  let nextElementId = 1; // ID for the next element to be added
+  // Stan modułu
+  let elements = []; // Tablica obiektów elementów
+  let activeElementIndex = -1; // Indeks aktualnie wybranego elementu
+  let nextElementId = 1; // ID dla następnego elementu
+  let currentMockupId = null; // Aktualne ID mockupu
+  let saveInProgress = false; // Flaga zapobiegająca wielokrotnym zapisom
 
-  // References to DOM elements for rendering
-  let elementPreviews = {}; // Object to store element preview elements
-  let uploadHandlersOverridden = false; // Flag to prevent multiple overrides
+  // Referencje do elementów DOM dla renderowania
+  let elementPreviews = {}; // Obiekt przechowujący elementy podglądu
+  let uploadHandlersOverridden = false; // Flaga zapobiegająca wielokrotnym nadpisaniom
 
   /**
-   * Element object structure:
+   * Struktura obiektu elementu:
    * {
-   *   id: Number,            // Unique identifier
-   *   src: String,           // Image source (data URL or path)
-   *   name: String,          // Element name (e.g., "Element 1")
-   *   transformations: {     // Transformation state
-   *     x: Number,           // X position
-   *     y: Number,           // Y position
-   *     rotation: Number,    // Rotation in degrees
-   *     zoom: Number,        // Zoom level in percent
-   *     layerIndex: Number   // Z-index for layer ordering
+   *   id: Number,            // Unikalny identyfikator
+   *   src: String,           // Źródło obrazu (URL danych lub ścieżka)
+   *   name: String,          // Nazwa elementu (np. "Element 1")
+   *   transformations: {     // Stan transformacji
+   *     x: Number,           // Pozycja X
+   *     y: Number,           // Pozycja Y
+   *     rotation: Number,    // Rotacja w stopniach
+   *     zoom: Number,        // Poziom powiększenia w procentach
+   *     layerIndex: Number   // Z-index dla porządkowania warstw
    *   }
    * }
    */
 
   /**
-   * Initialize the module
+   * Inicjalizuje moduł
    */
   function init() {
     if (window.Debug) {
-      Debug.info("ELEMENTS_MANAGER", "Initializing module");
+      Debug.info("ELEMENTS_MANAGER", "Inicjalizacja modułu");
     }
 
-    // Create UI elements for managing multiple elements
+    // Utwórz elementy UI do zarządzania wieloma elementami
     createElementsManagerUI();
 
-    // Set up event listeners
+    // Skonfiguruj nasłuchiwacze zdarzeń
     setupEventListeners();
 
-    // Override existing upload handlers to integrate with our system
+    // Nadpisz istniejące handlery uploadów, aby zintegrować z naszym systemem
     overrideUploadHandlers();
+
+    // Nasłuchuj zmian mockupu, aby załadować powiązane elementy
+    document.addEventListener("mockupChanged", handleMockupChanged);
   }
 
   /**
-   * Override existing upload handlers
+   * Obsługuje zdarzenie zmiany mockupu
+   * @param {CustomEvent} e - zdarzenie mockupChanged
    */
-  function overrideUploadHandlers() {
-    if (uploadHandlersOverridden) {
-      return; // Prevent multiple overrides
-    }
+  async function handleMockupChanged(e) {
+    const mockupId = e.detail.mockupId;
 
     if (window.Debug) {
-      Debug.debug("ELEMENTS_MANAGER", "Overriding existing upload handlers");
+      Debug.debug("ELEMENTS_MANAGER", `Mockup zmieniony na ID=${mockupId}`);
     }
 
-    if (window.UserImage) {
-      // Wait until all elements are loaded
-      setTimeout(() => {
-        // Only override if UserImage has these methods
-        if (typeof window.UserImage.handleFileSelect === "function") {
-          // Create our override for file selection
-          const originalHandleFileSelect = window.UserImage.handleFileSelect;
-          window.UserImage.handleFileSelect = function (e) {
-            if (window.Debug) {
-              Debug.debug("ELEMENTS_MANAGER", "Intercepted file selection");
-            }
-            // Prevent the original handler from running
-            e.stopPropagation();
+    // Zapisz elementy dla poprzedniego mockupu, jeśli mamy aktualny mockup
+    if (currentMockupId && elements.length > 0 && window.Storage) {
+      try {
+        if (window.Debug) {
+          Debug.debug(
+            "ELEMENTS_MANAGER",
+            `Zapisywanie elementów dla poprzedniego mockupu ID=${currentMockupId}`
+          );
+        }
+        await Storage.saveElementsForMockup(currentMockupId, elements);
+      } catch (error) {
+        console.error(
+          "Błąd zapisywania elementów dla poprzedniego mockupu:",
+          error
+        );
+      }
+    }
 
-            // Use our handler that adds elements
-            handleUploadedFiles(e.target.files);
+    // Aktualizuj aktualne ID mockupu
+    currentMockupId = mockupId;
 
-            // Mark as handled to prevent duplicate processing
-            e._handled = true;
-          };
+    // Załaduj elementy dla nowego mockupu
+    await loadElementsForCurrentMockup();
+  }
+
+  function getAllElements() {
+    // Zwróć kopię tablicy elements posortowaną według indeksu warstwy
+    return [...elements].sort(
+      (a, b) => a.transformations.layerIndex - b.transformations.layerIndex
+    );
+  }
+  
+  /**
+   * Ładuje elementy dla aktualnego mockupu
+   */
+  async function loadElementsForCurrentMockup() {
+    if (!currentMockupId || !window.Storage) return;
+
+    if (window.Debug) {
+      Debug.debug(
+        "ELEMENTS_MANAGER",
+        `Ładowanie elementów dla mockupu ID=${currentMockupId}`
+      );
+    }
+
+    try {
+      // Pokaż wskaźnik ładowania, jeśli go masz
+      showLoadingIndicator("Ładowanie elementów...");
+
+      // Załaduj elementy z serwera
+      const savedElements = await Storage.loadElementsForMockup(
+        currentMockupId
+      );
+
+      // Jeśli mamy zapisane elementy, zastąp aktualne elementy
+      if (savedElements && savedElements.length > 0) {
+        elements = savedElements;
+
+        // Znajdź najwyższe ID elementu, aby zaktualizować nextElementId
+        nextElementId = 1;
+        elements.forEach((element) => {
+          if (element.id >= nextElementId) {
+            nextElementId = element.id + 1;
+          }
+        });
+
+        // Ustaw aktywny element na pierwszy
+        activeElementIndex = elements.length > 0 ? 0 : -1;
+
+        // Aktualizuj UI i podglądy
+        updateElementsList();
+        createOrUpdateElementPreviews();
+
+        // Zastosuj transformacje, jeśli mamy elementy
+        if (elements.length > 0 && activeElementIndex >= 0) {
+          applyActiveElementTransformations();
         }
 
-        if (typeof window.UserImage.handleDrop === "function") {
-          // Create our override for drop
-          const originalHandleDrop = window.UserImage.handleDrop;
-          window.UserImage.handleDrop = function (e) {
-            if (window.Debug) {
-              Debug.debug("ELEMENTS_MANAGER", "Intercepted drop event");
-            }
-            e.preventDefault();
-            e.stopPropagation();
+        // Pokaż kontrolki
+        Elements.controls.style.display = "block";
+        Elements.dragInstruction.style.display = "block";
 
-            const dt = e.dataTransfer;
-            const files = dt.files;
-            handleUploadedFiles(files);
-
-            // Reset drop area appearance
-            if (Elements.dropArea) {
-              Elements.dropArea.classList.remove("highlight");
-            }
-            if (Elements.uploadText) {
-              Elements.uploadText.style.display = "block";
-            }
-            if (Elements.dropText) {
-              Elements.dropText.style.display = "none";
-            }
-
-            // Mark as handled to prevent duplicate processing
-            e._handled = true;
-          };
+        // Ustaw UserImage jako załadowany
+        if (window.UserImage) {
+          UserImage.setImageLoaded(true);
         }
-
-        uploadHandlersOverridden = true;
 
         if (window.Debug) {
           Debug.info(
             "ELEMENTS_MANAGER",
-            "Upload handlers successfully overridden"
+            `Załadowano ${elements.length} elementów dla mockupu ID=${currentMockupId}`
           );
         }
-      }, 500); // Wait for everything to be loaded properly
+      } else {
+        // Brak zapisanych elementów, wyczyść aktualne elementy
+        elements = [];
+        activeElementIndex = -1;
+        updateElementsList();
+        createOrUpdateElementPreviews();
+
+        if (window.Debug) {
+          Debug.debug(
+            "ELEMENTS_MANAGER",
+            `Brak zapisanych elementów dla mockupu ID=${currentMockupId}`
+          );
+        }
+      }
+
+      // Ukryj wskaźnik ładowania
+      hideLoadingIndicator();
+    } catch (error) {
+      console.error("Błąd ładowania elementów:", error);
+      hideLoadingIndicator();
+
+      // Pokaż powiadomienie o błędzie, jeśli moduł UI jest dostępny
+      if (window.UI && UI.showNotification) {
+        UI.showNotification("Błąd ładowania elementów: " + error.message, 5000);
+      }
     }
-
-    // Also attach directly to the main upload elements
-    setTimeout(() => {
-      const uploadInput = document.getElementById("image-upload");
-      const dropArea = document.getElementById("drop-area");
-
-      if (uploadInput) {
-        uploadInput.addEventListener("change", function (e) {
-          if (window.Debug) {
-            Debug.debug(
-              "ELEMENTS_MANAGER",
-              "Direct handler for file input triggered"
-            );
-          }
-          handleUploadedFiles(e.target.files);
-        });
-      }
-
-      if (dropArea) {
-        dropArea.addEventListener("drop", function (e) {
-          if (window.Debug) {
-            Debug.debug(
-              "ELEMENTS_MANAGER",
-              "Direct handler for drop area triggered"
-            );
-          }
-          e.preventDefault();
-          e.stopPropagation();
-          const dt = e.dataTransfer;
-          const files = dt.files;
-          handleUploadedFiles(files);
-        });
-      }
-    }, 1000);
   }
 
   /**
-   * Handle files from the main upload interface
-   * @param {FileList} files - Uploaded files
+   * Zapisuje aktualne elementy na serwerze
+   * @returns {Promise} - Promise rozwiązywane po zakończeniu zapisu
    */
-  async function handleUploadedFiles(files) {
+  async function saveCurrentElements() {
+    if (!currentMockupId || !window.Storage || saveInProgress) return;
+
     if (window.Debug) {
       Debug.debug(
         "ELEMENTS_MANAGER",
-        "Handling uploaded files from main interface"
+        `Zapisywanie ${elements.length} elementów dla mockupu ID=${currentMockupId}`
       );
     }
 
-    if (!files || files.length === 0) return;
-
-    // Check if we're already processing these files to prevent duplication
-    if (window._currentlyProcessingFiles) {
-      if (window.Debug) {
-        Debug.debug("ELEMENTS_MANAGER", "Skipping duplicate file processing");
-      }
-      return;
-    }
-
-    // Set a flag to prevent duplicate processing
-    window._currentlyProcessingFiles = true;
-
     try {
-      // Show loading message
-      const loadingMsg = document.createElement("div");
-      loadingMsg.style.position = "fixed";
-      loadingMsg.style.top = "50%";
-      loadingMsg.style.left = "50%";
-      loadingMsg.style.transform = "translate(-50%, -50%)";
-      loadingMsg.style.background = "rgba(0, 0, 0, 0.8)";
-      loadingMsg.style.color = "white";
-      loadingMsg.style.padding = "20px";
-      loadingMsg.style.borderRadius = "10px";
-      loadingMsg.style.zIndex = "9999";
-      loadingMsg.textContent = "Wgrywanie obrazu...";
-      document.body.appendChild(loadingMsg);
+      saveInProgress = true;
 
-      // Process image as before but add it as an element
-      const file = files[0];
-      if (file.type.match("image.*")) {
-        // Create a FormData object
-        const formData = new FormData();
-        formData.append("image", file);
+      // Opcjonalnie: Pokaż wskaźnik zapisu
+      showSavingIndicator();
 
-        // Upload to server
-        const response = await fetch("/api/upload/user-image", {
-          method: "POST",
-          body: formData,
-        });
+      await Storage.saveElementsForMockup(currentMockupId, elements);
 
-        const result = await response.json();
-        document.body.removeChild(loadingMsg);
+      // Opcjonalnie: Pokaż wskaźnik sukcesu
+      hideSavingIndicator();
+      showSaveSuccessIndicator();
 
-        if (result.success) {
-          if (window.Debug) {
-            Debug.debug(
-              "ELEMENTS_MANAGER",
-              "Image uploaded successfully, adding as element"
-            );
-          }
-
-          // For backwards compatibility, set the image preview source first
-          if (Elements.imagePreview) {
-            Elements.imagePreview.src = result.imageData;
-            // Hide the original image preview since we're using elements now
-            Elements.imagePreview.style.display = "none";
-          }
-
-          // Only add the element if we don't already have one with this source
-          if (!elements.some((e) => e.src === result.imageData)) {
-            // Add the image as a new element
-            addNewElement(result.imageData);
-          } else if (window.Debug) {
-            Debug.debug(
-              "ELEMENTS_MANAGER",
-              "Element with this source already exists, skipping"
-            );
-          }
-
-          // Show controls
-          Elements.controls.style.display = "block";
-          Elements.dragInstruction.style.display = "block";
-
-          // Set UserImage as loaded
-          if (window.UserImage) {
-            UserImage.setImageLoaded(true);
-          }
-
-          // Dispatch event for compatibility
-          const event = new CustomEvent("userImageLoaded");
-          document.dispatchEvent(event);
-        } else {
-          alert("Błąd: " + (result.error || " Nie udało się przesłać obrazu"));
-        }
-      } else {
-        document.body.removeChild(loadingMsg);
-        alert("Proszę wybrać plik ze zdjęciem");
-      }
-
-      // Clear the processing flag
-      window._currentlyProcessingFiles = false;
+      saveInProgress = false;
     } catch (error) {
-      console.error("Błąd przesyłania obrazu:", error);
-      alert("Wystąpił błąd podczas przesyłania obrazu.");
+      console.error("Błąd zapisywania elementów:", error);
+      saveInProgress = false;
+
+      // Ukryj wskaźniki
+      hideSavingIndicator();
+
+      // Pokaż powiadomienie o błędzie, jeśli moduł UI jest dostępny
+      if (window.UI && UI.showNotification) {
+        UI.showNotification(
+          "Błąd zapisywania elementów: " + error.message,
+          5000
+        );
+      }
     }
   }
 
   /**
-   * Create UI elements for managing multiple elements
+   * Tworzy elementy UI dla zarządzania elementami
    */
   function createElementsManagerUI() {
     if (window.Debug) {
-      Debug.debug("ELEMENTS_MANAGER", "Creating elements manager UI");
+      Debug.debug("ELEMENTS_MANAGER", "Tworzenie UI zarządzania elementami");
     }
 
-    // Create elements panel
+    // Utwórz panel elementów
     const elementsPanel = document.createElement("div");
     elementsPanel.id = "elements-panel";
     elementsPanel.className = "elements-panel";
 
-    // Panel header
+    // Nagłówek panelu
     elementsPanel.innerHTML = `
       <div class="elements-panel-header">
         <h3>Elementy</h3>
@@ -296,15 +259,15 @@ const ElementsManager = (function () {
       </div>
     `;
 
-    // Find the controls section and insert our panel before it
+    // Znajdź sekcję kontrolek i wstaw nasz panel przed nią
     const controlsSection = document.getElementById("controls");
     if (controlsSection && controlsSection.parentNode) {
       controlsSection.parentNode.insertBefore(elementsPanel, controlsSection);
     } else {
-      // Fallback - find the editor section
+      // Awaryjnie - znajdź sekcję edytora
       const editorSection = document.querySelector(".editor-section");
       if (editorSection) {
-        // Insert at the beginning of editor section
+        // Wstaw na początku sekcji edytora
         if (editorSection.firstChild) {
           editorSection.insertBefore(elementsPanel, editorSection.firstChild);
         } else {
@@ -312,17 +275,17 @@ const ElementsManager = (function () {
         }
       } else {
         console.error(
-          "Could not find .editor-section to append elements panel"
+          "Nie można znaleźć .editor-section, aby dodać panel elementów"
         );
       }
     }
 
-    // Add CSS for the elements panel
+    // Dodaj CSS dla panelu elementów
     addElementsManagerStyles();
   }
 
   /**
-   * Add CSS styles for the elements manager
+   * Dodaje style CSS dla menedżera elementów
    */
   function addElementsManagerStyles() {
     const styleElement = document.createElement("style");
@@ -445,7 +408,7 @@ const ElementsManager = (function () {
         font-style: italic;
       }
       
-      /* Element preview styles */
+      /* Style podglądu elementów */
       .editor-container {
         position: relative;
       }
@@ -470,27 +433,24 @@ const ElementsManager = (function () {
   }
 
   /**
-   * Set up event listeners for the elements manager
+   * Konfiguruje nasłuchiwacze zdarzeń dla menedżera elementów
    */
   function setupEventListeners() {
     if (window.Debug) {
-      Debug.debug("ELEMENTS_MANAGER", "Setting up event listeners");
+      Debug.debug("ELEMENTS_MANAGER", "Konfigurowanie nasłuchiwaczy zdarzeń");
     }
 
-    // Handle user image loaded event - for compatibility with old code
+    // Obsługa zdarzenia załadowania obrazu użytkownika - dla kompatybilności ze starym kodem
     document.addEventListener("userImageLoaded", function () {
       if (window.Debug) {
-        Debug.debug("ELEMENTS_MANAGER", "User image loaded event received");
+        Debug.debug("ELEMENTS_MANAGER", "Otrzymano zdarzenie userImageLoaded");
       }
 
-      // Mark that initialization has occurred to prevent double processing
+      // Oznacz, że inicjalizacja miała miejsce, aby zapobiec podwójnemu przetwarzaniu
       window._elementsManagerInitialized = true;
-
-      // We no longer automatically add an element here since our upload handler does that
-      // This eliminates the duplication issue
     });
 
-    // Handle transformChange events only for the active element
+    // Obsługa zdarzeń transformChange tylko dla aktywnego elementu
     document.addEventListener("transformChange", function (e) {
       if (activeElementIndex !== -1) {
         const element = elements[activeElementIndex];
@@ -501,113 +461,351 @@ const ElementsManager = (function () {
             e.detail.type,
             e.detail.value
           );
-          // Update the preview
+          // Aktualizuj podgląd
           updateElementPreview(activeElementIndex);
         }
       }
     });
 
-    // Add handler for resetTransformations event
+    // Dodaj obsługę dla zdarzenia resetTransformations
     document.addEventListener("resetTransformations", function () {
       if (window.Debug) {
-        Debug.debug("ELEMENTS_MANAGER", "Handling resetTransformations event");
+        Debug.debug(
+          "ELEMENTS_MANAGER",
+          "Obsługa zdarzenia resetTransformations"
+        );
       }
 
-      // Skip if no elements or no active element
+      // Pomiń, jeśli nie ma elementów lub nie ma aktywnego elementu
       if (elements.length === 0 || activeElementIndex === -1) return;
 
-      // Reset the active element's transformations to default values
+      // Zresetuj transformacje aktywnego elementu do wartości domyślnych
       const activeElement = elements[activeElementIndex];
       if (activeElement) {
         if (window.Debug) {
           Debug.debug(
             "ELEMENTS_MANAGER",
-            `Resetting element ID ${activeElement.id} transformations`
+            `Resetowanie transformacji elementu ID ${activeElement.id}`
           );
         }
 
-        // Reset to default values from EditorConfig
+        // Resetuj do wartości domyślnych z EditorConfig
         activeElement.transformations.x = EditorConfig.defaults.positionX;
         activeElement.transformations.y = EditorConfig.defaults.positionY;
         activeElement.transformations.rotation = EditorConfig.defaults.rotation;
         activeElement.transformations.zoom = EditorConfig.defaults.zoom;
 
-        // Update the preview
+        // Aktualizuj podgląd
         updateElementPreview(activeElementIndex);
 
-        // If Transformations module is available, sync its state with our element
+        // Jeśli moduł Transformations jest dostępny, zsynchronizuj jego stan z naszym elementem
         if (window.Transformations) {
           const transformState = Transformations.getState();
 
-          // Sync state
+          // Synchronizuj stan
           transformState.currentX = activeElement.transformations.x;
           transformState.currentY = activeElement.transformations.y;
           transformState.currentRotation =
             activeElement.transformations.rotation;
           transformState.currentZoom = activeElement.transformations.zoom;
 
-          // Apply transformations
+          // Zastosuj transformacje
           Transformations.updateTransform();
         }
+
+        // Zapisz zmiany na serwerze
+        saveCurrentElements();
       }
     });
 
-    // Also add handler for centerImage event
+    // Dodaj również obsługę dla zdarzenia centerImage
     document.addEventListener("centerImage", function () {
       if (window.Debug) {
-        Debug.debug("ELEMENTS_MANAGER", "Handling centerImage event");
+        Debug.debug("ELEMENTS_MANAGER", "Obsługa zdarzenia centerImage");
       }
 
-      // Skip if no elements or no active element
+      // Pomiń, jeśli nie ma elementów lub nie ma aktywnego elementu
       if (elements.length === 0 || activeElementIndex === -1) return;
 
-      // Center the active element
+      // Wyśrodkuj aktywny element
       const activeElement = elements[activeElementIndex];
       if (activeElement) {
         if (window.Debug) {
           Debug.debug(
             "ELEMENTS_MANAGER",
-            `Centering element ID ${activeElement.id}`
+            `Centrowanie elementu ID ${activeElement.id}`
           );
         }
 
-        // Set position to center (0,0)
+        // Ustaw pozycję na środek (0,0)
         activeElement.transformations.x = 0;
         activeElement.transformations.y = 0;
 
-        // Update the preview
+        // Aktualizuj podgląd
         updateElementPreview(activeElementIndex);
 
-        // If Transformations module is available, sync its state with our element
+        // Jeśli moduł Transformations jest dostępny, zsynchronizuj jego stan z naszym elementem
         if (window.Transformations) {
           const transformState = Transformations.getState();
 
-          // Sync state
+          // Synchronizuj stan
           transformState.currentX = activeElement.transformations.x;
           transformState.currentY = activeElement.transformations.y;
 
-          // Apply transformations
+          // Zastosuj transformacje
           Transformations.updateTransform();
 
-          // Update UI controls
+          // Aktualizuj kontrolki UI
           if (window.UI) {
             UI.updateControlsFromState(transformState);
           }
         }
+
+        // Zapisz zmiany na serwerze
+        saveCurrentElements();
       }
     });
   }
 
   /**
-   * Add a new element to the mockup
-   * @param {string} src - Image source (data URL)
+   * Nadpisuje istniejące handlery uploadów
+   */
+  function overrideUploadHandlers() {
+    if (uploadHandlersOverridden) {
+      return; // Zapobiegaj wielokrotnym nadpisaniom
+    }
+
+    if (window.Debug) {
+      Debug.debug(
+        "ELEMENTS_MANAGER",
+        "Nadpisywanie istniejących handlerów uploadu"
+      );
+    }
+
+    if (window.UserImage) {
+      // Poczekaj, aż wszystkie elementy zostaną załadowane
+      setTimeout(() => {
+        // Nadpisz tylko, jeśli UserImage ma te metody
+        if (typeof window.UserImage.handleFileSelect === "function") {
+          // Utwórz nasze nadpisanie dla wyboru pliku
+          const originalHandleFileSelect = window.UserImage.handleFileSelect;
+          window.UserImage.handleFileSelect = function (e) {
+            if (window.Debug) {
+              Debug.debug("ELEMENTS_MANAGER", "Przechwycono wybór pliku");
+            }
+            // Zapobiegaj uruchomieniu oryginalnego handlera
+            e.stopPropagation();
+
+            // Użyj naszego handlera, który dodaje elementy
+            handleUploadedFiles(e.target.files);
+
+            // Oznacz jako obsłużone, aby zapobiec podwójnemu przetwarzaniu
+            e._handled = true;
+          };
+        }
+
+        if (typeof window.UserImage.handleDrop === "function") {
+          // Utwórz nasze nadpisanie dla upuszczenia
+          const originalHandleDrop = window.UserImage.handleDrop;
+          window.UserImage.handleDrop = function (e) {
+            if (window.Debug) {
+              Debug.debug(
+                "ELEMENTS_MANAGER",
+                "Przechwycono zdarzenie upuszczenia"
+              );
+            }
+            e.preventDefault();
+            e.stopPropagation();
+
+            const dt = e.dataTransfer;
+            const files = dt.files;
+            handleUploadedFiles(files);
+
+            // Zresetuj wygląd obszaru upuszczania
+            if (Elements.dropArea) {
+              Elements.dropArea.classList.remove("highlight");
+            }
+            if (Elements.uploadText) {
+              Elements.uploadText.style.display = "block";
+            }
+            if (Elements.dropText) {
+              Elements.dropText.style.display = "none";
+            }
+
+            // Oznacz jako obsłużone, aby zapobiec podwójnemu przetwarzaniu
+            e._handled = true;
+          };
+        }
+
+        uploadHandlersOverridden = true;
+
+        if (window.Debug) {
+          Debug.info(
+            "ELEMENTS_MANAGER",
+            "Handlery uploadu pomyślnie nadpisane"
+          );
+        }
+      }, 500); // Poczekaj, aż wszystko zostanie poprawnie załadowane
+    }
+
+    // Podłącz się także bezpośrednio do głównych elementów uploadu
+    setTimeout(() => {
+      const uploadInput = document.getElementById("image-upload");
+      const dropArea = document.getElementById("drop-area");
+
+      if (uploadInput) {
+        uploadInput.addEventListener("change", function (e) {
+          if (window.Debug) {
+            Debug.debug(
+              "ELEMENTS_MANAGER",
+              "Uruchomiono bezpośredni handler dla input file"
+            );
+          }
+          handleUploadedFiles(e.target.files);
+        });
+      }
+
+      if (dropArea) {
+        dropArea.addEventListener("drop", function (e) {
+          if (window.Debug) {
+            Debug.debug(
+              "ELEMENTS_MANAGER",
+              "Uruchomiono bezpośredni handler dla drop area"
+            );
+          }
+          e.preventDefault();
+          e.stopPropagation();
+          const dt = e.dataTransfer;
+          const files = dt.files;
+          handleUploadedFiles(files);
+        });
+      }
+    }, 1000);
+  }
+
+  /**
+   * Obsługuje pliki z głównego interfejsu uploadu
+   * @param {FileList} files - Przesłane pliki
+   */
+  async function handleUploadedFiles(files) {
+    if (window.Debug) {
+      Debug.debug(
+        "ELEMENTS_MANAGER",
+        "Obsługa przesłanych plików z głównego interfejsu"
+      );
+    }
+
+    if (!files || files.length === 0) return;
+
+    // Sprawdź, czy już przetwarzamy te pliki, aby zapobiec duplikacji
+    if (window._currentlyProcessingFiles) {
+      if (window.Debug) {
+        Debug.debug(
+          "ELEMENTS_MANAGER",
+          "Pomijanie duplikatów przetwarzania plików"
+        );
+      }
+      return;
+    }
+
+    // Ustaw flagę, aby zapobiec podwójnemu przetwarzaniu
+    window._currentlyProcessingFiles = true;
+
+    try {
+      // Pokaż komunikat ładowania
+      const loadingMsg = document.createElement("div");
+      loadingMsg.style.position = "fixed";
+      loadingMsg.style.top = "50%";
+      loadingMsg.style.left = "50%";
+      loadingMsg.style.transform = "translate(-50%, -50%)";
+      loadingMsg.style.background = "rgba(0, 0, 0, 0.8)";
+      loadingMsg.style.color = "white";
+      loadingMsg.style.padding = "20px";
+      loadingMsg.style.borderRadius = "10px";
+      loadingMsg.style.zIndex = "9999";
+      loadingMsg.textContent = "Wgrywanie obrazu...";
+      document.body.appendChild(loadingMsg);
+
+      // Przetwórz obraz jak poprzednio, ale dodaj go jako element
+      const file = files[0];
+      if (file.type.match("image.*")) {
+        // Utwórz obiekt FormData
+        const formData = new FormData();
+        formData.append("image", file);
+
+        // Prześlij na serwer
+        const response = await fetch("/api/upload/user-image", {
+          method: "POST",
+          body: formData,
+        });
+
+        const result = await response.json();
+        document.body.removeChild(loadingMsg);
+
+        if (result.success) {
+          if (window.Debug) {
+            Debug.debug(
+              "ELEMENTS_MANAGER",
+              "Obraz przesłany pomyślnie, dodawanie jako element"
+            );
+          }
+
+          // Dla kompatybilności wstecznej, najpierw ustaw źródło podglądu obrazu
+          if (Elements.imagePreview) {
+            Elements.imagePreview.src = result.imageData;
+            // Ukryj oryginalny podgląd obrazu, ponieważ teraz używamy elementów
+            Elements.imagePreview.style.display = "none";
+          }
+
+          // Dodaj tylko element, jeśli nie mamy już elementu z tym źródłem
+          if (!elements.some((e) => e.src === result.imageData)) {
+            // Dodaj obraz jako nowy element
+            addNewElement(result.imageData);
+          } else if (window.Debug) {
+            Debug.debug(
+              "ELEMENTS_MANAGER",
+              "Element z tym źródłem już istnieje, pomijanie"
+            );
+          }
+
+          // Pokaż kontrolki
+          Elements.controls.style.display = "block";
+          Elements.dragInstruction.style.display = "block";
+
+          // Ustaw UserImage jako załadowany
+          if (window.UserImage) {
+            UserImage.setImageLoaded(true);
+          }
+
+          // Wyślij zdarzenie dla kompatybilności
+          const event = new CustomEvent("userImageLoaded");
+          document.dispatchEvent(event);
+        } else {
+          alert("Błąd: " + (result.error || " Nie udało się przesłać obrazu"));
+        }
+      } else {
+        document.body.removeChild(loadingMsg);
+        alert("Proszę wybrać plik ze zdjęciem");
+      }
+
+      // Wyczyść flagę przetwarzania
+      window._currentlyProcessingFiles = false;
+    } catch (error) {
+      console.error("Błąd przesyłania obrazu:", error);
+      alert("Wystąpił błąd podczas przesyłania obrazu.");
+    }
+  }
+
+  /**
+   * Dodaje nowy element do mockupu
+   * @param {string} src - Źródło obrazu (URL danych)
    */
   function addNewElement(src) {
     if (window.Debug) {
-      Debug.debug("ELEMENTS_MANAGER", "Adding new element");
+      Debug.debug("ELEMENTS_MANAGER", "Dodawanie nowego elementu");
     }
 
-    // Create a new element object
+    // Utwórz nowy obiekt elementu
     const newElement = {
       id: nextElementId++,
       src: src,
@@ -617,55 +815,61 @@ const ElementsManager = (function () {
         y: 0,
         rotation: 0,
         zoom: 100,
-        layerIndex: elements.length, // Place on top
+        layerIndex: elements.length, // Umieść na wierzchu
       },
     };
 
-    // Add to elements array
+    // Dodaj do tablicy elementów
     elements.push(newElement);
 
-    // Set as active element
+    // Ustaw jako aktywny element
     activeElementIndex = elements.length - 1;
 
-    // Update UI
+    // Aktualizuj UI
     updateElementsList();
 
-    // Create or update element previews
+    // Utwórz lub zaktualizuj podglądy elementów
     createOrUpdateElementPreviews();
 
-    // Apply transformations to UI controls
+    // Zastosuj transformacje do kontrolek UI
     applyActiveElementTransformations();
 
-    // Set UserImage as loaded if not already
+    // Ustaw UserImage jako załadowany, jeśli jeszcze nie jest
     if (window.UserImage && !UserImage.isImageLoaded()) {
       UserImage.setImageLoaded(true);
     }
 
-    // Show controls if not already visible
+    // Pokaż kontrolki, jeśli nie są jeszcze widoczne
     Elements.controls.style.display = "block";
     Elements.dragInstruction.style.display = "block";
+
+    // Zapisz na serwerze
+    saveCurrentElements();
   }
 
   /**
-   * Create or update element previews in the editor
+   * Tworzy lub aktualizuje podglądy elementów w edytorze
    */
   function createOrUpdateElementPreviews() {
     if (window.Debug) {
-      Debug.debug("ELEMENTS_MANAGER", "Creating/updating element previews");
+      Debug.debug(
+        "ELEMENTS_MANAGER",
+        "Tworzenie/aktualizacja podglądów elementów"
+      );
     }
 
-    // Get editor container
+    // Pobierz kontener edytora
     const editorContainer = document.querySelector(".editor-container");
     if (!editorContainer) return;
 
-    // Remove existing previews
+    // Usuń istniejące podglądy
     const existingPreviews = document.querySelectorAll(".element-preview");
     existingPreviews.forEach((el) => el.remove());
 
-    // Clear references
+    // Wyczyść referencje
     elementPreviews = {};
 
-    // Create new previews for each element - sorted by layer
+    // Utwórz nowe podglądy dla każdego elementu - posortowane według warstwy
     const sortedElements = [...elements].sort(
       (a, b) => a.transformations.layerIndex - b.transformations.layerIndex
     );
@@ -676,17 +880,17 @@ const ElementsManager = (function () {
       img.className = "element-preview";
       img.dataset.elementId = element.id;
 
-      // Set z-index based on layer
+      // Ustaw z-index w oparciu o warstwę
       img.style.zIndex = 5 + element.transformations.layerIndex;
 
-      // Apply transformations
+      // Zastosuj transformacje
       applyTransformationToElement(img, element.transformations);
 
-      // Add active class and drag events only for active element
+      // Dodaj klasę active i zdarzenia przeciągania tylko dla aktywnego elementu
       if (elements.indexOf(element) === activeElementIndex) {
         img.classList.add("active");
 
-        // Add mouse events for dragging (only for active element)
+        // Dodaj zdarzenia myszy dla przeciągania (tylko dla aktywnego elementu)
         img.addEventListener("mousedown", function (e) {
           if (window.Transformations) {
             Transformations.startDrag(e);
@@ -694,37 +898,37 @@ const ElementsManager = (function () {
         });
       }
 
-      // Add to document
+      // Dodaj do dokumentu
       editorContainer.appendChild(img);
 
-      // Store reference
+      // Zapisz referencję
       elementPreviews[element.id] = img;
     });
 
-    // Hide the original image preview
+    // Ukryj oryginalny podgląd obrazu
     if (Elements.imagePreview) {
       Elements.imagePreview.style.display = "none";
     }
   }
 
   /**
-   * Apply transformation to an element preview
-   * @param {HTMLElement} img - Element preview image
-   * @param {Object} transform - Transformation object
+   * Zastosuj transformację do podglądu elementu
+   * @param {HTMLElement} img - Obraz podglądu elementu
+   * @param {Object} transform - Obiekt transformacji
    */
   function applyTransformationToElement(img, transform) {
-    // Use the same transformation formula as in Transformations module
+    // Użyj tej samej formuły transformacji, co w module Transformations
     const linearZoomFactor = transform.zoom * 0.01;
 
     img.style.transform = `translate(calc(-50% + ${transform.x}px), calc(-50% + ${transform.y}px)) rotate(${transform.rotation}deg) scale(${linearZoomFactor})`;
   }
 
   /**
-   * Update the elements list UI
+   * Aktualizuje listę elementów UI
    */
   function updateElementsList() {
     if (window.Debug) {
-      Debug.debug("ELEMENTS_MANAGER", "Updating elements list UI");
+      Debug.debug("ELEMENTS_MANAGER", "Aktualizacja listy elementów UI");
     }
 
     const listContainer = document.getElementById("elements-list");
@@ -737,7 +941,7 @@ const ElementsManager = (function () {
 
     let html = "";
 
-    // Create element items in reverse order (top layer first)
+    // Utwórz elementy w odwrotnej kolejności (najwyższa warstwa najpierw)
     for (let i = elements.length - 1; i >= 0; i--) {
       const element = elements[i];
       const isActive = i === activeElementIndex;
@@ -767,15 +971,15 @@ const ElementsManager = (function () {
 
     listContainer.innerHTML = html;
 
-    // Add event listeners to elements
+    // Dodaj nasłuchiwacze zdarzeń do elementów
     setupElementItemListeners();
   }
 
   /**
-   * Set up event listeners for element items
+   * Konfiguruje nasłuchiwacze zdarzeń dla elementów na liście
    */
   function setupElementItemListeners() {
-    // Element selection
+    // Wybór elementu
     const elementItems = document.querySelectorAll(".element-item");
     elementItems.forEach((item) => {
       item.addEventListener("click", function (e) {
@@ -786,7 +990,7 @@ const ElementsManager = (function () {
       });
     });
 
-    // Layer up buttons
+    // Przyciski warstwy w górę
     const upButtons = document.querySelectorAll(".element-up-btn");
     upButtons.forEach((button) => {
       button.addEventListener("click", function (e) {
@@ -797,7 +1001,7 @@ const ElementsManager = (function () {
       });
     });
 
-    // Layer down buttons
+    // Przyciski warstwy w dół
     const downButtons = document.querySelectorAll(".element-down-btn");
     downButtons.forEach((button) => {
       button.addEventListener("click", function (e) {
@@ -808,7 +1012,7 @@ const ElementsManager = (function () {
       });
     });
 
-    // Delete buttons
+    // Przyciski usuwania
     const deleteButtons = document.querySelectorAll(".delete-btn");
     deleteButtons.forEach((button) => {
       button.addEventListener("click", function (e) {
@@ -816,7 +1020,7 @@ const ElementsManager = (function () {
         const item = this.closest(".element-item");
         const index = parseInt(item.getAttribute("data-index"));
 
-        // Confirm deletion - allow deletion of the last element
+        // Potwierdź usunięcie - pozwól na usunięcie ostatniego elementu
         if (confirm("Czy na pewno chcesz usunąć ten element?")) {
           deleteElement(index);
         }
@@ -825,14 +1029,14 @@ const ElementsManager = (function () {
   }
 
   /**
-   * Set the active element
-   * @param {number} index - Index of the element to activate
+   * Ustawia aktywny element
+   * @param {number} index - Indeks elementu do aktywacji
    */
   function setActiveElement(index) {
     if (window.Debug) {
       Debug.debug(
         "ELEMENTS_MANAGER",
-        `Setting active element to index ${index}`
+        `Ustawianie aktywnego elementu na indeks ${index}`
       );
     }
 
@@ -840,21 +1044,21 @@ const ElementsManager = (function () {
       return;
     }
 
-    // Set new active index
+    // Ustaw nowy aktywny indeks
     activeElementIndex = index;
 
-    // Update UI
+    // Aktualizuj UI
     updateElementsList();
 
-    // Update element previews
+    // Aktualizuj podglądy elementów
     createOrUpdateElementPreviews();
 
-    // Apply transformations
+    // Zastosuj transformacje
     applyActiveElementTransformations();
   }
 
   /**
-   * Apply the active element's transformations to the UI
+   * Zastosuj transformacje aktywnego elementu do UI
    */
   function applyActiveElementTransformations() {
     if (activeElementIndex === -1) return;
@@ -865,25 +1069,25 @@ const ElementsManager = (function () {
     if (window.Debug) {
       Debug.debug(
         "ELEMENTS_MANAGER",
-        "Applying active element transformations",
+        "Zastosowanie transformacji aktywnego elementu",
         element.transformations
       );
     }
 
-    // Update transformations state
+    // Aktualizuj stan transformacji
     if (window.Transformations) {
       const transformState = Transformations.getState();
 
-      // Update the state values
+      // Aktualizuj wartości stanu
       transformState.currentX = element.transformations.x;
       transformState.currentY = element.transformations.y;
       transformState.currentRotation = element.transformations.rotation;
       transformState.currentZoom = element.transformations.zoom;
 
-      // Apply transformations
+      // Zastosuj transformacje
       Transformations.updateTransform();
 
-      // Update UI controls
+      // Aktualizuj kontrolki UI
       if (window.UI) {
         UI.updateControlsFromState(transformState);
       }
@@ -891,8 +1095,8 @@ const ElementsManager = (function () {
   }
 
   /**
-   * Update an element preview based on index
-   * @param {number} index - Index of the element to update
+   * Aktualizuje podgląd elementu na podstawie indeksu
+   * @param {number} index - Indeks elementu do aktualizacji
    */
   function updateElementPreview(index) {
     if (index < 0 || index >= elements.length) return;
@@ -900,19 +1104,19 @@ const ElementsManager = (function () {
     const element = elements[index];
     const elementId = element.id;
 
-    // Get the preview element
+    // Pobierz element podglądu
     const preview = elementPreviews[elementId];
     if (preview) {
-      // Apply transformations
+      // Zastosuj transformacje
       applyTransformationToElement(preview, element.transformations);
     }
   }
 
   /**
-   * Update an element's transformation
-   * @param {number} index - Index of the element to update
-   * @param {string} type - Type of transformation (rotation, zoom, positionX, positionY)
-   * @param {number} value - New value for the transformation
+   * Aktualizuje transformację elementu
+   * @param {number} index - Indeks elementu do aktualizacji
+   * @param {string} type - Typ transformacji (rotation, zoom, positionX, positionY)
+   * @param {number} value - Nowa wartość dla transformacji
    */
   function updateElementTransformation(index, type, value) {
     if (index < 0 || index >= elements.length) return;
@@ -922,11 +1126,11 @@ const ElementsManager = (function () {
     if (window.Debug) {
       Debug.debug(
         "ELEMENTS_MANAGER",
-        `Updating element ${index} ${type} to ${value}`
+        `Aktualizacja elementu ${index} ${type} na ${value}`
       );
     }
 
-    // Update the appropriate transformation property
+    // Aktualizuj odpowiednią właściwość transformacji
     switch (type) {
       case "rotation":
         element.transformations.rotation = value;
@@ -941,73 +1145,85 @@ const ElementsManager = (function () {
         element.transformations.y = value;
         break;
     }
+
+    // Zapisz zmiany na serwerze z debounce, aby uniknąć zbyt wielu zapisów
+    clearTimeout(element._saveTimeout);
+    element._saveTimeout = setTimeout(() => {
+      saveCurrentElements();
+    }, 1000); // Dłuższy debounce dla zapisów na serwerze
   }
 
   /**
-   * Move an element's layer position
-   * @param {number} index - Index of the element to move
-   * @param {string} direction - Direction to move ("up" or "down")
+   * Zmienia pozycję warstwy elementu
+   * @param {number} index - Indeks elementu do przesunięcia
+   * @param {string} direction - Kierunek przesunięcia ("up" lub "down")
    */
   function moveElementLayer(index, direction) {
     if (window.Debug) {
-      Debug.debug("ELEMENTS_MANAGER", `Moving element ${index} ${direction}`);
+      Debug.debug(
+        "ELEMENTS_MANAGER",
+        `Przesuwanie elementu ${index} ${direction}`
+      );
     }
 
     if (index < 0 || index >= elements.length) return;
 
-    // Determine new index based on direction
+    // Określ nowy indeks na podstawie kierunku
     let newIndex;
     if (direction === "up" && index < elements.length - 1) {
       newIndex = index + 1;
     } else if (direction === "down" && index > 0) {
       newIndex = index - 1;
     } else {
-      return; // No valid move
+      return; // Brak prawidłowego ruchu
     }
 
-    // Swap elements
+    // Zamień elementy
     const temp = elements[index];
     elements[index] = elements[newIndex];
     elements[newIndex] = temp;
 
-    // Update layer indexes
+    // Aktualizuj indeksy warstw
     for (let i = 0; i < elements.length; i++) {
       elements[i].transformations.layerIndex = i;
     }
 
-    // Update active element index if needed
+    // Aktualizuj indeks aktywnego elementu, jeśli potrzeba
     if (activeElementIndex === index) {
       activeElementIndex = newIndex;
     } else if (activeElementIndex === newIndex) {
       activeElementIndex = index;
     }
 
-    // Update UI
+    // Aktualizuj UI
     updateElementsList();
 
-    // Update preview elements
+    // Aktualizuj elementy podglądu
     createOrUpdateElementPreviews();
+
+    // Zapisz zmiany na serwerze
+    saveCurrentElements();
   }
 
   /**
-   * Delete an element
-   * @param {number} index - Index of the element to delete
+   * Usuwa element
+   * @param {number} index - Indeks elementu do usunięcia
    */
   function deleteElement(index) {
     if (window.Debug) {
-      Debug.debug("ELEMENTS_MANAGER", `Deleting element at index ${index}`);
+      Debug.debug("ELEMENTS_MANAGER", `Usuwanie elementu o indeksie ${index}`);
     }
 
     if (index < 0 || index >= elements.length) return;
 
-    // Remove the element
+    // Usuń element
     elements.splice(index, 1);
 
-    // Reset state if we removed the last element
+    // Zresetuj stan, jeśli usunęliśmy ostatni element
     if (elements.length === 0) {
       activeElementIndex = -1;
 
-      // Hide controls
+      // Ukryj kontrolki
       if (Elements.controls) {
         Elements.controls.style.display = "none";
       }
@@ -1016,69 +1232,194 @@ const ElementsManager = (function () {
         Elements.dragInstruction.style.display = "none";
       }
 
-      // Show upload area again
+      // Pokaż ponownie obszar uploadu
       if (Elements.uploadText) {
         Elements.uploadText.style.display = "block";
       }
 
-      // Make the original image preview visible again
+      // Uczyń oryginalny podgląd obrazu ponownie widocznym
       if (Elements.imagePreview) {
         Elements.imagePreview.style.display = "block";
-        Elements.imagePreview.src = "./img/placeholder.png"; // Reset to placeholder
+        Elements.imagePreview.src = "./img/placeholder.png"; // Zresetuj do placeholdera
       }
 
-      // Set UserImage as not loaded
+      // Ustaw UserImage jako niezaładowany
       if (window.UserImage) {
         UserImage.setImageLoaded(false);
       }
 
-      // Clear element previews
+      // Wyczyść podglądy elementów
       createOrUpdateElementPreviews();
 
-      // Update the elements list to show "no elements" message
+      // Aktualizuj listę elementów, aby pokazać komunikat "brak elementów"
       updateElementsList();
+
+      // Zapisz pustą tablicę elementów na serwerze
+      saveCurrentElements();
 
       return;
     }
 
-    // Update active element index
+    // Aktualizuj indeks aktywnego elementu
     if (activeElementIndex === index) {
-      // Set active to the next element or the last one
+      // Ustaw aktywny na następny element lub ostatni
       activeElementIndex = Math.min(index, elements.length - 1);
     } else if (activeElementIndex > index) {
-      // Adjust active index if we removed an element before it
+      // Dostosuj aktywny indeks, jeśli usunęliśmy element przed nim
       activeElementIndex--;
     }
 
-    // Re-index all elements
+    // Ponownie indeksuj wszystkie elementy
     for (let i = 0; i < elements.length; i++) {
       elements[i].transformations.layerIndex = i;
     }
 
-    // Update UI
+    // Aktualizuj UI
     updateElementsList();
 
-    // Update preview
+    // Aktualizuj podgląd
     createOrUpdateElementPreviews();
 
-    // Apply transformations if we have elements
+    // Zastosuj transformacje, jeśli mamy elementy
     if (elements.length > 0 && activeElementIndex >= 0) {
       applyActiveElementTransformations();
+    }
+
+    // Zapisz zmiany na serwerze
+    saveCurrentElements();
+  }
+
+  /**
+   * Pokaż wskaźnik ładowania dla elementów
+   * @param {string} message - Wiadomość do wyświetlenia
+   */
+  function showLoadingIndicator(message = "Ładowanie...") {
+    // Utwórz lub zaktualizuj wskaźnik ładowania
+    let loadingIndicator = document.getElementById(
+      "elements-loading-indicator"
+    );
+
+    if (!loadingIndicator) {
+      loadingIndicator = document.createElement("div");
+      loadingIndicator.id = "elements-loading-indicator";
+      loadingIndicator.style.position = "fixed";
+      loadingIndicator.style.top = "50%";
+      loadingIndicator.style.left = "50%";
+      loadingIndicator.style.transform = "translate(-50%, -50%)";
+      loadingIndicator.style.background = "rgba(0, 0, 0, 0.7)";
+      loadingIndicator.style.color = "white";
+      loadingIndicator.style.padding = "15px 30px";
+      loadingIndicator.style.borderRadius = "5px";
+      loadingIndicator.style.zIndex = "9999";
+      document.body.appendChild(loadingIndicator);
+    }
+
+    loadingIndicator.textContent = message;
+    loadingIndicator.style.display = "block";
+  }
+
+  /**
+   * Ukryj wskaźnik ładowania
+   */
+  function hideLoadingIndicator() {
+    const loadingIndicator = document.getElementById(
+      "elements-loading-indicator"
+    );
+    if (loadingIndicator) {
+      loadingIndicator.style.display = "none";
     }
   }
 
   /**
-   * Get all elements for rendering
-   * @returns {Array} Array of element objects sorted by layer index
+   * Pokaż wskaźnik zapisywania
    */
-  function getAllElements() {
-    // Return a copy of the elements array sorted by layer index
-    return [...elements].sort(
-      (a, b) => a.transformations.layerIndex - b.transformations.layerIndex
-    );
+  function showSavingIndicator() {
+    // Dodaj mały wskaźnik zapisywania w rogu
+    let savingIndicator = document.getElementById("elements-saving-indicator");
+
+    if (!savingIndicator) {
+      savingIndicator = document.createElement("div");
+      savingIndicator.id = "elements-saving-indicator";
+      savingIndicator.style.position = "fixed";
+      savingIndicator.style.bottom = "10px";
+      savingIndicator.style.right = "10px";
+      savingIndicator.style.background = "rgba(0, 0, 0, 0.7)";
+      savingIndicator.style.color = "white";
+      savingIndicator.style.padding = "5px 10px";
+      savingIndicator.style.borderRadius = "3px";
+      savingIndicator.style.fontSize = "12px";
+      savingIndicator.style.zIndex = "9998";
+      document.body.appendChild(savingIndicator);
+    }
+
+    savingIndicator.textContent = "Zapisywanie...";
+    savingIndicator.style.display = "block";
   }
 
-  // Public interface
+  /**
+   * Ukryj wskaźnik zapisywania
+   */
+  function hideSavingIndicator() {
+    const savingIndicator = document.getElementById(
+      "elements-saving-indicator"
+    );
+    if (savingIndicator) {
+      savingIndicator.style.display = "none";
+    }
+  }
+
+  /**
+   * Krótko pokaż wskaźnik pomyślnego zapisu
+   */
+  function showSaveSuccessIndicator() {
+    let successIndicator = document.getElementById(
+      "elements-success-indicator"
+    );
+
+    if (!successIndicator) {
+      successIndicator = document.createElement("div");
+      successIndicator.id = "elements-success-indicator";
+      successIndicator.style.position = "fixed";
+      successIndicator.style.bottom = "10px";
+      successIndicator.style.right = "10px";
+      successIndicator.style.background = "rgba(40, 167, 69, 0.7)";
+      successIndicator.style.color = "white";
+      successIndicator.style.padding = "5px 10px";
+      successIndicator.style.borderRadius = "3px";
+      successIndicator.style.fontSize = "12px";
+      successIndicator.style.zIndex = "9998";
+      document.body.appendChild(successIndicator);
+    }
+
+    successIndicator.textContent = "Zapisano!";
+    successIndicator.style.display = "block";
+
+    // Ukryj po 2 sekundach
+    setTimeout(() => {
+      successIndicator.style.display = "none";
+    }, 2000);
+  }
+
+  // Dodaj handler beforeunload, aby zapisać elementy przed zamknięciem strony
+  window.addEventListener("beforeunload", function (e) {
+    if (currentMockupId && elements.length > 0 && window.Storage) {
+      if (window.Debug) {
+        Debug.debug(
+          "ELEMENTS_MANAGER",
+          "Zapisywanie elementów przed zamknięciem strony"
+        );
+      }
+
+      // To jest operacja synchroniczna przed zamknięciem strony,
+      // więc używamy navigator.sendBeacon dla lepszej niezawodności
+      const data = new Blob([JSON.stringify({ elements })], {
+        type: "application/json",
+      });
+      navigator.sendBeacon(`/api/mockup-elements/${currentMockupId}`, data);
+    }
+  });
+
+  // Publiczny interfejs
   return {
     init,
     addNewElement,
@@ -1089,8 +1430,11 @@ const ElementsManager = (function () {
     getElementCount: function () {
       return elements.length;
     },
+    // Nowe metody
+    saveCurrentElements,
+    loadElementsForCurrentMockup,
   };
 })();
 
-// Export as global object
+// Eksport jako obiekt globalny
 window.ElementsManager = ElementsManager;
