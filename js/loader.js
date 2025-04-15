@@ -1,14 +1,14 @@
 /**
- * improved-loader.js - Fixes DOMContentLoaded event issues and improves module loading
+ * improved-loader.js - Fixes module loading order issues
  * Replace your existing loader.js with this file
  */
 
-// List of modules to load
+// List of modules to load - ensuring proper order
 const modules = [
   "modules/debug.js",
   "modules/config.js",
   "modules/elements.js",
-  "modules/storage.js",
+  "modules/storage.js", // Storage module needs to load early
   "modules/transformations.js",
   "modules/userImage.js",
   "modules/mockups.js",
@@ -16,7 +16,7 @@ const modules = [
   "modules/export.js",
   "modules/ui.js",
   "modules/calibration.js",
-  "index.js",
+  "index.js", // index.js should always be last
 ];
 
 // Debugging flag
@@ -51,7 +51,7 @@ function checkDebugMode() {
 // Initialize debug mode
 checkDebugMode();
 
-// Function to load scripts sequentially
+// Function to load scripts sequentially and handle dependencies better
 function loadScriptsSequentially(scripts, index) {
   if (index >= scripts.length) {
     allModulesLoaded = true;
@@ -101,7 +101,10 @@ function loadScriptsSequentially(scripts, index) {
       }
     }
 
-    loadScriptsSequentially(scripts, index + 1);
+    // Add delay between module loads to ensure proper initialization
+    setTimeout(() => {
+      loadScriptsSequentially(scripts, index + 1);
+    }, 50); // Small delay to allow module initialization
   };
 
   script.onerror = function () {
@@ -118,7 +121,9 @@ function loadScriptsSequentially(scripts, index) {
     }
 
     // Continue loading remaining modules
-    loadScriptsSequentially(scripts, index + 1);
+    setTimeout(() => {
+      loadScriptsSequentially(scripts, index + 1);
+    }, 50);
   };
 
   document.head.appendChild(script);
@@ -169,15 +174,15 @@ function waitForAllModules() {
 // Register a function to run when DOM is loaded
 function registerInitFunction(fn) {
   if (isDOMLoaded && allModulesLoaded) {
-    // If DOM and modules are already loaded, run immediately
-    fn();
+    // If DOM and modules are already loaded, run immediately but with a small delay
+    setTimeout(fn, 50);
   } else {
-    // Innewise, queue for later execution
+    // Otherwise, queue for later execution
     pendingInitFunctions.push(fn);
   }
 }
 
-// Run all pending initialization functions
+// Run all pending initialization functions with better error handling
 function runPendingInitFunctions() {
   if (loaderDebug || (window.Debug && window.Debug.isEnabled())) {
     console.log(
@@ -186,16 +191,23 @@ function runPendingInitFunctions() {
     );
   }
 
-  pendingInitFunctions.forEach((fn) => {
-    try {
-      fn();
-    } catch (e) {
-      if (window.Debug && window.Debug.isEnabled()) {
-        window.Debug.error("LOADER", "Error in initialization function", e);
-      } else {
-        console.error("Error in initialization function:", e);
+  // Run each function separately to isolate errors
+  pendingInitFunctions.forEach((fn, index) => {
+    setTimeout(() => {
+      try {
+        fn();
+      } catch (e) {
+        if (window.Debug && window.Debug.isEnabled()) {
+          window.Debug.error(
+            "LOADER",
+            `Error in initialization function #${index}`,
+            e
+          );
+        } else {
+          console.error(`Error in initialization function #${index}:`, e);
+        }
       }
-    }
+    }, index * 50); // Stagger the initialization to prevent race conditions
   });
 
   // Clear the queue
@@ -213,9 +225,9 @@ document.addEventListener("DOMContentLoaded", function () {
     );
   }
 
-  // If all modules are already loaded, run pending init functions
+  // If all modules are already loaded, run pending init functions with a small delay
   if (allModulesLoaded) {
-    runPendingInitFunctions();
+    setTimeout(runPendingInitFunctions, 100);
   }
 });
 
@@ -252,7 +264,7 @@ if (
   setTimeout(function () {
     isDOMLoaded = true;
     if (allModulesLoaded) {
-      runPendingInitFunctions();
+      setTimeout(runPendingInitFunctions, 100);
     }
   }, 0);
 }

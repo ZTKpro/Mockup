@@ -1,6 +1,6 @@
 /**
  * export.js - Module for exporting and downloading images
- * Enhanced for exact 1:1 DOM capture with perfect fidelity
+ * Enhanced for high-quality image exports with perfect fidelity
  */
 
 const Export = (function () {
@@ -46,6 +46,15 @@ const Export = (function () {
         </select>
       </div>
       
+      <div style="margin-bottom: 15px;">
+        <label style="display: block; margin-bottom: 5px; font-weight: bold;">Jakość:</label>
+        <select id="quality-select" style="width: 100%; padding: 8px; border-radius: 4px; border: 1px solid #ddd;">
+          <option value="high">Wysoka (zalecana)</option>
+          <option value="ultra">Ultra wysoka (większy plik)</option>
+          <option value="standard">Standardowa</option>
+        </select>
+      </div>
+      
       <div class="download-dialog-buttons">
         <button id="cancel-download" class="cancel">Anuluj</button>
         <button id="confirm-download" class="confirm">Pobierz</button>
@@ -69,12 +78,14 @@ const Export = (function () {
       .getElementById("confirm-download")
       .addEventListener("click", function () {
         const format = document.getElementById("format-select").value;
-        const size = document.getElementById("size-select").value;
+        const size = parseInt(document.getElementById("size-select").value, 10);
+        const quality = document.getElementById("quality-select").value;
 
         if (window.Debug) {
           Debug.debug("EXPORT", "Download options confirmed", {
             format,
             size,
+            quality,
           });
         }
 
@@ -90,36 +101,40 @@ const Export = (function () {
           Debug.debug("EXPORT", `Generating file: ${fileName}`);
         }
 
-        generateAndDownloadImage(fileName, format, parseInt(size));
+        generateAndDownloadImage(fileName, format, size, quality);
       });
   }
 
   /**
-   * Generate and download image with exact 1:1 rendering
+   * Generate and download image with high quality rendering
    * @param {string} fileName - Filename for download
    * @param {string} format - File format (png/jpg)
    * @param {number} size - Image size in pixels
+   * @param {string} quality - Quality setting (standard/high/ultra)
    * @returns {Promise<boolean>} - True if download succeeded
    */
   async function generateAndDownloadImage(
     fileName = "phone-case-design.png",
     format = "png",
-    size = 1200
+    size = 1200,
+    quality = "high"
   ) {
     // Create a short delay to ensure UI is fully rendered
-    await new Promise((resolve) => setTimeout(resolve, 100));
+    await new Promise((resolve) => setTimeout(resolve, 200));
     if (window.Debug) {
-      Debug.info("EXPORT", "Starting exact 1:1 image capture", {
+      Debug.info("EXPORT", "Starting high-quality image capture", {
         fileName,
         format,
         size,
+        quality,
       });
     }
 
     // Show progress message
     const progressMsg = document.createElement("div");
     progressMsg.className = "progress-message";
-    progressMsg.textContent = "Generowanie obrazu, proszę czekać...";
+    progressMsg.textContent =
+      "Generowanie obrazu wysokiej jakości, proszę czekać...";
     document.body.appendChild(progressMsg);
 
     try {
@@ -141,7 +156,6 @@ const Export = (function () {
 
       // Store exact visual state before capture
       const editorRect = editorContainer.getBoundingClientRect();
-      const originalComputedStyle = window.getComputedStyle(editorContainer);
 
       // Save all relevant DOM element states that we'll temporarily modify
       const elementsToHide = [];
@@ -161,16 +175,28 @@ const Export = (function () {
       editorContainer.style.backgroundColor =
         transformState.currentBackgroundColor || "#FFFFFF";
 
-      // No need to clone images or elements anymore since we're directly capturing
-      // the actual editor container with all its contents
+      // Determine capture scale based on quality settings and device pixel ratio
+      const devicePixelRatio = window.devicePixelRatio || 1;
+      let captureScale = devicePixelRatio;
 
-      // Configure html2canvas for exact 1:1 capture
+      if (quality === "high") {
+        captureScale = Math.max(2, devicePixelRatio);
+      } else if (quality === "ultra") {
+        captureScale = Math.max(3, devicePixelRatio);
+      }
+
+      // Configure html2canvas for high quality capture
       const html2canvasOptions = {
         backgroundColor: transformState.currentBackgroundColor || "#FFFFFF",
-        scale: 1, // Use scale 1 for exact 1:1 representation
+        // Key improvement: use higher scale for better quality
+        scale: captureScale,
         logging: window.Debug ? true : false,
         useCORS: true,
         allowTaint: true,
+        // Add additional rendering improvements
+        imageTimeout: 0, // No timeout for image loading
+        removeContainer: false,
+        foreignObjectRendering: false, // More compatible but may be slower
         ignoreElements: (element) => {
           // Ignore controls and UI elements
           return (
@@ -184,13 +210,21 @@ const Export = (function () {
           if (window.Debug) {
             Debug.debug("EXPORT", "DOM cloned by html2canvas");
           }
+          // Enhance image quality in the cloned document
+          const imageElements = clonedDoc.querySelectorAll("img");
+          imageElements.forEach((img) => {
+            // Remove any image smoothing that might blur pixel art
+            if (img.style) {
+              img.style.imageRendering = "high-quality";
+            }
+          });
         },
       };
 
       if (window.Debug) {
         Debug.debug(
           "EXPORT",
-          "Starting html2canvas with options",
+          "Starting html2canvas with enhanced options",
           html2canvasOptions
         );
       }
@@ -210,18 +244,27 @@ const Export = (function () {
         Debug.debug("EXPORT", "html2canvas capture completed", {
           width: canvas.width,
           height: canvas.height,
+          scale: captureScale,
         });
       }
 
-      // Resize to requested output size with high quality
+      // Create output canvas with requested dimensions
       const outputCanvas = document.createElement("canvas");
       outputCanvas.width = size;
       outputCanvas.height = size;
       const ctx = outputCanvas.getContext("2d");
 
-      // Apply high-quality scaling
+      // Apply high-quality scaling settings
       ctx.imageSmoothingEnabled = true;
       ctx.imageSmoothingQuality = "high";
+
+      // Use better algorithms when possible
+      if (typeof ctx.filter !== "undefined") {
+        // Apply subtle sharpening for PNG exports
+        if (format === "png" && quality === "ultra") {
+          ctx.filter = "contrast(1.05) saturate(1.02)";
+        }
+      }
 
       // Fill with background color first
       ctx.fillStyle = transformState.currentBackgroundColor || "#FFFFFF";
@@ -234,27 +277,46 @@ const Export = (function () {
       const drawX = (size - drawWidth) / 2;
       const drawY = (size - drawHeight) / 2;
 
+      // Draw image with best quality
       ctx.drawImage(canvas, drawX, drawY, drawWidth, drawHeight);
 
       if (window.Debug) {
-        Debug.debug("EXPORT", "Final canvas prepared", {
+        Debug.debug("EXPORT", "Final canvas prepared with enhanced quality", {
           size: size,
           scaleFactor: scaleFactor,
+          quality: quality,
         });
       }
 
-      // Convert to appropriate format and download
+      // Convert to appropriate format and download with quality settings
       if (format === "jpg") {
-        const dataURL = outputCanvas.toDataURL(
-          "image/jpeg",
-          EditorConfig.export.jpgQuality
-        );
+        // Better quality setting for JPG based on selected quality
+        let jpgQuality = 0.92; // High default
+        if (quality === "ultra") {
+          jpgQuality = 0.95;
+        } else if (quality === "standard") {
+          jpgQuality = 0.85;
+        }
+
+        const dataURL = outputCanvas.toDataURL("image/jpeg", jpgQuality);
         downloadUsingDataURL(dataURL, fileName);
       } else {
+        // For PNG, use best quality always
         outputCanvas.toBlob(
           (blob) => downloadUsingBlob(blob, fileName),
           "image/png"
         );
+      }
+
+      // Apply subtle sharpen effect for better details (post-processing)
+      if (format === "png" && quality === "ultra") {
+        try {
+          applySharpen(outputCanvas);
+        } catch (err) {
+          if (window.Debug) {
+            Debug.warn("EXPORT", "Could not apply sharpen filter", err);
+          }
+        }
       }
 
       // Remove progress message
@@ -271,6 +333,63 @@ const Export = (function () {
       alert("Wystąpił błąd podczas generowania obrazu: " + error.message);
       return false;
     }
+  }
+
+  /**
+   * Apply a subtle sharpen effect to improve image clarity
+   * @param {HTMLCanvasElement} canvas - Canvas to sharpen
+   */
+  function applySharpen(canvas) {
+    const ctx = canvas.getContext("2d");
+    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    const data = imageData.data;
+    const width = canvas.width;
+    const height = canvas.height;
+
+    // Create a temporary canvas for the sharpen operation
+    const tempCanvas = document.createElement("canvas");
+    tempCanvas.width = width;
+    tempCanvas.height = height;
+    const tempCtx = tempCanvas.getContext("2d");
+
+    // Draw original image first
+    tempCtx.drawImage(canvas, 0, 0);
+
+    // Apply a subtle unsharp mask (simplified)
+    const amount = 0.5; // Sharpen amount (0.0 to 1.0)
+    const threshold = 3; // Threshold (0 to 255)
+
+    // We'll use a simple convolution kernel to sharpen
+    // This is a simplified approach that works well enough
+    const imageData2 = tempCtx.getImageData(0, 0, width, height);
+    const data2 = imageData2.data;
+
+    // Very simplified sharpening - just increase contrast between adjacent pixels
+    for (let y = 1; y < height - 1; y++) {
+      for (let x = 1; x < width - 1; x++) {
+        const offset = (y * width + x) * 4;
+
+        for (let c = 0; c < 3; c++) {
+          const current = data2[offset + c];
+          const neighbors =
+            (data2[offset - width * 4 + c] +
+              data2[offset - 4 + c] +
+              data2[offset + 4 + c] +
+              data2[offset + width * 4 + c]) /
+            4;
+
+          const diff = current - neighbors;
+          if (Math.abs(diff) > threshold) {
+            data[offset + c] = Math.max(
+              0,
+              Math.min(255, current + diff * amount)
+            );
+          }
+        }
+      }
+    }
+
+    ctx.putImageData(imageData, 0, 0);
   }
 
   /**
@@ -372,29 +491,105 @@ const Export = (function () {
   }
 
   /**
-   * Download multiple mockups with exact 1:1 rendering
+   * Download multiple mockups with high quality rendering
    * @param {Array} mockups - Array of mockup objects
    */
   async function downloadMultipleMockups(mockups) {
     if (window.Debug) {
       Debug.info(
         "EXPORT",
-        `Starting download of ${mockups.length} mockups`,
+        `Starting download of ${mockups.length} mockups with high quality`,
         mockups
       );
     }
 
+    // Show quality selection dialog before batch export
+    const dialogOverlay = document.createElement("div");
+    dialogOverlay.className = "download-dialog-overlay";
+
+    const dialogBox = document.createElement("div");
+    dialogBox.className = "download-dialog";
+
+    dialogBox.innerHTML = `
+      <h3>Opcje eksportu wielu mockupów</h3>
+      
+      <div style="margin-bottom: 15px;">
+        <label style="display: block; margin-bottom: 5px; font-weight: bold;">Format pliku:</label>
+        <select id="batch-format-select" style="width: 100%; padding: 8px; border-radius: 4px; border: 1px solid #ddd;">
+          <option value="png">PNG</option>
+          <option value="jpg">JPG</option>
+        </select>
+      </div>
+      
+      <div style="margin-bottom: 15px;">
+        <label style="display: block; margin-bottom: 5px; font-weight: bold;">Rozmiar:</label>
+        <select id="batch-size-select" style="width: 100%; padding: 8px; border-radius: 4px; border: 1px solid #ddd;">
+          ${EditorConfig.export.availableSizes
+            .map(
+              (size) => `<option value="${size}">${size} x ${size} px</option>`
+            )
+            .join("")}
+        </select>
+      </div>
+      
+      <div style="margin-bottom: 15px;">
+        <label style="display: block; margin-bottom: 5px; font-weight: bold;">Jakość:</label>
+        <select id="batch-quality-select" style="width: 100%; padding: 8px; border-radius: 4px; border: 1px solid #ddd;">
+          <option value="high">Wysoka (zalecana)</option>
+          <option value="ultra">Ultra wysoka (większe pliki)</option>
+          <option value="standard">Standardowa</option>
+        </select>
+      </div>
+      
+      <div class="download-dialog-buttons">
+        <button id="batch-cancel" class="cancel">Anuluj</button>
+        <button id="batch-confirm" class="confirm">Generuj ${
+          mockups.length
+        } mockupów</button>
+      </div>
+    `;
+
+    dialogOverlay.appendChild(dialogBox);
+    document.body.appendChild(dialogOverlay);
+
+    // Wait for user choice
+    const selection = await new Promise((resolve) => {
+      document.getElementById("batch-cancel").addEventListener("click", () => {
+        document.body.removeChild(dialogOverlay);
+        resolve(null);
+      });
+
+      document.getElementById("batch-confirm").addEventListener("click", () => {
+        const format = document.getElementById("batch-format-select").value;
+        const size = parseInt(
+          document.getElementById("batch-size-select").value,
+          10
+        );
+        const quality = document.getElementById("batch-quality-select").value;
+
+        document.body.removeChild(dialogOverlay);
+        resolve({ format, size, quality });
+      });
+    });
+
+    // If user canceled, return
+    if (!selection) return;
+
     // Create progress indicator
     const progressMsg = document.createElement("div");
     progressMsg.className = "progress-message";
-    progressMsg.textContent = `Generowanie ${mockups.length} obrazów, proszę czekać...`;
+    progressMsg.textContent = `Generowanie ${mockups.length} obrazów wysokiej jakości, proszę czekać...`;
     document.body.appendChild(progressMsg);
 
     // Save current mockup to restore it later
     const originalMockup = Mockups.getCurrentMockup();
 
     if (window.Debug) {
-      Debug.debug("EXPORT", "Saved original mockup", originalMockup);
+      Debug.debug(
+        "EXPORT",
+        "Saved original mockup for restoration",
+        originalMockup
+      );
     }
 
     try {
@@ -408,7 +603,7 @@ const Export = (function () {
         if (window.Debug) {
           Debug.debug(
             "EXPORT",
-            `Generating image ${i + 1}/${mockups.length}`,
+            `Generating high quality image ${i + 1}/${mockups.length}`,
             mockup
           );
         }
@@ -449,9 +644,14 @@ const Export = (function () {
         const fileName = `${mockup.model || "Inne"}_${mockup.name.replace(
           /\s+/g,
           "_"
-        )}_${i + 1}.png`;
+        )}_${i + 1}.${selection.format}`;
 
-        await generateAndDownloadImage(fileName);
+        await generateAndDownloadImage(
+          fileName,
+          selection.format,
+          selection.size,
+          selection.quality
+        );
       }
     } catch (error) {
       console.error("Error generating multiple mockups:", error);
@@ -480,7 +680,7 @@ const Export = (function () {
       if (window.Debug) {
         Debug.info(
           "EXPORT",
-          `Completed batch processing of ${mockups.length} images`
+          `Completed batch processing of ${mockups.length} high quality images`
         );
       }
     }
@@ -491,7 +691,10 @@ const Export = (function () {
    */
   function init() {
     if (window.Debug) {
-      Debug.info("EXPORT", "Initializing export module");
+      Debug.info(
+        "EXPORT",
+        "Initializing export module with high quality support"
+      );
     }
 
     // Download button handler
