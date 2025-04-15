@@ -102,7 +102,7 @@ const ElementsManager = (function () {
       (a, b) => a.transformations.layerIndex - b.transformations.layerIndex
     );
   }
-  
+
   /**
    * Ładuje elementy dla aktualnego mockupu
    */
@@ -119,6 +119,10 @@ const ElementsManager = (function () {
     try {
       // Pokaż wskaźnik ładowania, jeśli go masz
       showLoadingIndicator("Ładowanie elementów...");
+
+      // Zachowaj aktualne elementy (przed ładowaniem)
+      const currentElements = [...elements];
+      const hadElements = currentElements.length > 0;
 
       // Załaduj elementy z serwera
       const savedElements = await Storage.loadElementsForMockup(
@@ -140,24 +144,6 @@ const ElementsManager = (function () {
         // Ustaw aktywny element na pierwszy
         activeElementIndex = elements.length > 0 ? 0 : -1;
 
-        // Aktualizuj UI i podglądy
-        updateElementsList();
-        createOrUpdateElementPreviews();
-
-        // Zastosuj transformacje, jeśli mamy elementy
-        if (elements.length > 0 && activeElementIndex >= 0) {
-          applyActiveElementTransformations();
-        }
-
-        // Pokaż kontrolki
-        Elements.controls.style.display = "block";
-        Elements.dragInstruction.style.display = "block";
-
-        // Ustaw UserImage jako załadowany
-        if (window.UserImage) {
-          UserImage.setImageLoaded(true);
-        }
-
         if (window.Debug) {
           Debug.info(
             "ELEMENTS_MANAGER",
@@ -165,18 +151,60 @@ const ElementsManager = (function () {
           );
         }
       } else {
-        // Brak zapisanych elementów, wyczyść aktualne elementy
-        elements = [];
-        activeElementIndex = -1;
-        updateElementsList();
-        createOrUpdateElementPreviews();
+        // Brak zapisanych elementów dla tego mockupu
+        if (hadElements) {
+          // Przenieś elementy z poprzedniego mockupu
+          if (window.Debug) {
+            Debug.info(
+              "ELEMENTS_MANAGER",
+              `Przenoszenie ${currentElements.length} elementów do nowego mockupu ID=${currentMockupId}`
+            );
+          }
 
-        if (window.Debug) {
-          Debug.debug(
-            "ELEMENTS_MANAGER",
-            `Brak zapisanych elementów dla mockupu ID=${currentMockupId}`
-          );
+          // Zachowaj aktualne elementy
+          elements = currentElements;
+
+          // Zapisz te elementy dla nowego mockupu
+          if (window.Storage) {
+            try {
+              await Storage.saveElementsForMockup(currentMockupId, elements);
+            } catch (error) {
+              console.error(
+                "Błąd zapisywania przeniesionych elementów:",
+                error
+              );
+            }
+          }
+        } else {
+          // Brak elementów do przeniesienia, wyczyść tablicę
+          elements = [];
+          activeElementIndex = -1;
+
+          if (window.Debug) {
+            Debug.debug(
+              "ELEMENTS_MANAGER",
+              `Brak zapisanych elementów dla mockupu ID=${currentMockupId}`
+            );
+          }
         }
+      }
+
+      // Aktualizuj UI i podglądy
+      updateElementsList();
+      createOrUpdateElementPreviews();
+
+      // Zastosuj transformacje, jeśli mamy elementy
+      if (elements.length > 0 && activeElementIndex >= 0) {
+        applyActiveElementTransformations();
+      }
+
+      // Pokaż kontrolki
+      Elements.controls.style.display = "block";
+      Elements.dragInstruction.style.display = "block";
+
+      // Ustaw UserImage jako załadowany
+      if (window.UserImage) {
+        UserImage.setImageLoaded(true);
       }
 
       // Ukryj wskaźnik ładowania

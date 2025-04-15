@@ -406,7 +406,7 @@ async function deleteMockup(mockupId, mockupItem) {
       if (window.Debug) {
         Debug.error("DODAJ", `Error deleting mockup: ${result.error}`);
       }
-      alert(`Błąd usuwania mockupu: ${result.error}`);
+      UI.showNotification(`Błąd usuwania mockupu: ${result.error}`);
     }
   } catch (error) {
     if (window.Debug) {
@@ -474,14 +474,14 @@ async function updateMockupModel(mockupId, newModel, mockupItem) {
       if (window.Debug) {
         Debug.error("DODAJ", `Error updating mockup model: ${result.error}`);
       }
-      alert(`Błąd aktualizacji modelu mockupu: ${result.error}`);
+      UI.showNotification(`Błąd aktualizacji modelu mockupu: ${result.error}`);
     }
   } catch (error) {
     if (window.Debug) {
       Debug.error("DODAJ", "Exception while updating mockup model", error);
     }
     console.error("Error updating mockup model:", error);
-    alert("Wystąpił błąd podczas aktualizacji modelu mockupu.");
+    UI.showNotification("Wystąpił błąd podczas aktualizacji modelu mockupu.");
   }
 }
 
@@ -623,7 +623,9 @@ async function handleFiles(e) {
     if (uploadIndicator) {
       uploadIndicator.style.display = "none";
     }
-    alert("Wystąpił błąd podczas przesyłania plików: " + error.message);
+    UI.showNotification(
+      "Wystąpił błąd podczas przesyłania plików: " + error.message
+    );
     if (fileInput) {
       fileInput.value = "";
     }

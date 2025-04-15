@@ -376,6 +376,41 @@ const Transformations = (function () {
     },
   };
 })();
+function detectResolutionAndAdjustFactors() {
+  const width = window.innerWidth;
+  const height = window.innerHeight;
+
+  if (window.Debug) {
+    Debug.info("TRANSFORMATIONS", `Wykryto rozdzielczość: ${width}x${height}`);
+  }
+
+  // Współczynnik referencyjny dla 1920x1080
+  const referenceWidth = 1920;
+  const referenceHeight = 1080;
+
+  // Oblicz współczynnik skalowania
+  const widthRatio = width / referenceWidth;
+  const heightRatio = height / referenceHeight;
+
+  // Użyj mniejszego współczynnika dla zachowania proporcji
+  const scaleFactor = Math.min(widthRatio, heightRatio);
+
+  // Ustaw globalny współczynnik skalowania, który będzie używany w renderowaniu
+  window.globalScaleFactor = scaleFactor;
+
+  if (window.Debug) {
+    Debug.debug(
+      "TRANSFORMATIONS",
+      `Ustawiono współczynnik skalowania: ${scaleFactor}`
+    );
+  }
+
+  return scaleFactor;
+}
+
+// Wywołaj funkcję przy starcie i przy zmianie rozmiaru okna
+detectResolutionAndAdjustFactors();
+window.addEventListener("resize", detectResolutionAndAdjustFactors);
 
 // Eksport modułu jako obiekt globalny
 window.Transformations = Transformations;
