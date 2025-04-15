@@ -32,6 +32,9 @@ if (!fs.existsSync(elementsDir)) {
   }
 });
 
+app.use(express.json({ limit: "100mb" }));
+app.use(express.urlencoded({ extended: true, limit: "100mb" }));
+
 // Configure multer storage for mockups (saved to disk)
 const mockupStorage = multer.diskStorage({
   destination: function (req, file, cb) {
@@ -136,40 +139,67 @@ const upload = multer({
   storage: storage,
   fileFilter: fileFilter,
   limits: {
-    fileSize: 10 * 1024 * 1024, // 10MB limit
+    fileSize: 100 * 1024 * 1024, 
   },
 });
 
-app.post(
-  "/api/mockup-elements/:mockupId",
-  express.json({ limit: "50mb" }),
-  (req, res) => {
-    try {
-      const mockupId = req.params.mockupId;
-      const elements = req.body.elements;
+app.post("/api/mockup-elements/:mockupId", (req, res) => {
+  try {
+    const mockupId = req.params.mockupId;
+    const elements = req.body.elements;
 
-      if (isDebugMode) {
-        console.log(
-          `Saving ${elements.length} elements for mockup ID=${mockupId}`
-        );
-      }
-
-      // Create a file path for the elements JSON
-      const filePath = path.join(elementsDir, `${mockupId}.json`);
-
-      // Write elements to the file
-      fs.writeFileSync(filePath, JSON.stringify(elements));
-
-      res.json({ success: true, message: "Elements saved successfully" });
-    } catch (error) {
-      console.error("Error saving elements:", error);
-      if (isDebugMode) {
-        console.log(`Error saving elements: ${error.message}`);
-      }
-      res.status(500).json({ success: false, error: "Error saving elements" });
+    // Validate input
+    if (!mockupId || isNaN(parseInt(mockupId))) {
+      return res.status(400).json({
+        success: false,
+        error: "Invalid mockup ID",
+      });
     }
+
+    if (!elements || !Array.isArray(elements)) {
+      return res.status(400).json({
+        success: false,
+        error: "Elements data must be an array",
+      });
+    }
+
+    if (isDebugMode) {
+      console.log(
+        `Saving ${elements.length} elements for mockup ID=${mockupId}`
+      );
+    }
+
+    // Make sure the directory exists
+    if (!fs.existsSync(elementsDir)) {
+      fs.mkdirSync(elementsDir, { recursive: true });
+    }
+
+    // Create a file path for the elements JSON
+    const filePath = path.join(elementsDir, `${mockupId}.json`);
+
+    // Write elements to the file - add error handling for fs operations
+    try {
+      fs.writeFileSync(filePath, JSON.stringify(elements));
+    } catch (fsError) {
+      console.error("File system error:", fsError);
+      return res.status(500).json({
+        success: false,
+        error: `File system error: ${fsError.message}`,
+      });
+    }
+
+    res.json({ success: true, message: "Elements saved successfully" });
+  } catch (error) {
+    console.error("Error saving elements:", error);
+    if (isDebugMode) {
+      console.log(`Error saving elements: ${error.message}`);
+    }
+    res.status(500).json({
+      success: false,
+      error: `Error saving elements: ${error.message}`,
+    });
   }
-);
+});
 
 app.get("/api/mockup-elements/:mockupId", (req, res) => {
   try {

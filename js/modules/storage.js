@@ -208,10 +208,44 @@ const Storage = (function () {
     }
 
     try {
-      // Klonuj elementy aby uniknąć problemów z referencjami
-      const elementsToSave = JSON.parse(JSON.stringify(elements));
+      // Create a simpler version of the elements to save
+      // This removes circular references and reduces payload size
+      const elementsToSave = elements.map((element) => {
+        // Create a simplified copy of each element with only essential data
+        return {
+          id: element.id,
+          src: element.src,
+          name: element.name,
+          transformations: {
+            x: element.transformations.x,
+            y: element.transformations.y,
+            rotation: element.transformations.rotation,
+            zoom: element.transformations.zoom,
+            layerIndex: element.transformations.layerIndex,
+          },
+        };
+      });
 
-      // Wyślij na serwer
+      // Log the size of the payload in debug mode
+      if (window.Debug) {
+        const payloadSize = JSON.stringify({ elements: elementsToSave }).length;
+        Debug.debug(
+          "STORAGE",
+          `Payload size: ${(payloadSize / 1024 / 1024).toFixed(2)} MB`
+        );
+
+        // Warning if payload is large
+        if (payloadSize > 50 * 1024 * 1024) {
+          Debug.warn(
+            "STORAGE",
+            `Payload size is very large (${(payloadSize / 1024 / 1024).toFixed(
+              2
+            )} MB). Consider reducing the number of elements or simplifying them.`
+          );
+        }
+      }
+
+      // Send to server
       const response = await fetch(`/api/mockup-elements/${mockupId}`, {
         method: "POST",
         headers: {
@@ -220,25 +254,46 @@ const Storage = (function () {
         body: JSON.stringify({ elements: elementsToSave }),
       });
 
+      // Check if response is OK
+      if (!response.ok) {
+        const contentType = response.headers.get("content-type");
+        if (contentType && contentType.includes("application/json")) {
+          const errorData = await response.json();
+          throw new Error(
+            errorData.error || `Server error: ${response.status}`
+          );
+        } else {
+          // Handle HTML error response
+          const textResponse = await response.text();
+          console.error(
+            "Non-JSON response:",
+            textResponse.substring(0, 150) + "..."
+          );
+          throw new Error(
+            `Server error (${response.status}): The server may be rejecting the large payload`
+          );
+        }
+      }
+
       const result = await response.json();
 
       if (!result.success) {
-        throw new Error(result.error || "Nieznany błąd zapisywania elementów");
+        throw new Error(result.error || "Unknown error saving elements");
       }
 
       if (window.Debug) {
         Debug.debug(
           "STORAGE",
-          `Pomyślnie zapisano elementy na serwerze dla mockupu ID=${mockupId}`
+          `Successfully saved elements to server for mockup ID=${mockupId}`
         );
       }
 
       return result;
     } catch (error) {
       if (window.Debug) {
-        Debug.error("STORAGE", "Błąd zapisywania elementów na serwerze", error);
+        Debug.error("STORAGE", "Error saving elements to server", error);
       }
-      console.error("Błąd zapisywania elementów na serwerze:", error);
+      console.error("Error saving elements to server:", error);
       return Promise.reject(error);
     }
   }
