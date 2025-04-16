@@ -1,6 +1,6 @@
 /**
  * export.js - Module for exporting and downloading images
- * Enhanced for high-quality image exports with perfect fidelity
+ * Enhanced for high-quality image exports with perfect fidelity and ZIP support
  */
 
 const Export = (function () {
@@ -40,7 +40,7 @@ const Export = (function () {
         <select id="size-select" style="width: 100%; padding: 8px; border-radius: 4px; border: 1px solid #ddd;">
           ${EditorConfig.export.availableSizes
             .map(
-              (size) => `<option value="${size}">${size} x ${size} px</option>`
+              (size) => `<option value="${size}" ${size === 1000 ? 'selected' : ''}>${size} x ${size} px</option>`
             )
             .join("")}
         </select>
@@ -116,7 +116,7 @@ const Export = (function () {
   async function generateAndDownloadImage(
     fileName = "phone-case-design.png",
     format = "png",
-    size = 1200,
+    size = 1000,
     quality = "high"
   ) {
     // Create a short delay to ensure UI is fully rendered
@@ -526,7 +526,7 @@ const Export = (function () {
         <select id="batch-size-select" style="width: 100%; padding: 8px; border-radius: 4px; border: 1px solid #ddd;">
           ${EditorConfig.export.availableSizes
             .map(
-              (size) => `<option value="${size}">${size} x ${size} px</option>`
+              (size) => `<option value="${size}" ${size === 1000 ? 'selected' : ''}>${size} x ${size} px</option>`
             )
             .join("")}
         </select>
@@ -538,6 +538,14 @@ const Export = (function () {
           <option value="high">Wysoka (zalecana)</option>
           <option value="ultra">Ultra wysoka (większe pliki)</option>
           <option value="standard">Standardowa</option>
+        </select>
+      </div>
+      
+      <div style="margin-bottom: 15px;">
+        <label style="display: block; margin-bottom: 5px; font-weight: bold;">Metoda pobierania:</label>
+        <select id="batch-download-method" style="width: 100%; padding: 8px; border-radius: 4px; border: 1px solid #ddd;">
+          <option value="zip">Wszystkie pliki w jednym archiwum ZIP</option>
+          <option value="individual">Pojedyncze pliki</option>
         </select>
       </div>
       
@@ -566,9 +574,10 @@ const Export = (function () {
           10
         );
         const quality = document.getElementById("batch-quality-select").value;
+        const downloadMethod = document.getElementById("batch-download-method").value;
 
         document.body.removeChild(dialogOverlay);
-        resolve({ format, size, quality });
+        resolve({ format, size, quality, downloadMethod });
       });
     });
 
@@ -593,6 +602,15 @@ const Export = (function () {
     }
 
     try {
+      // Check if JSZip is available when zip method is selected
+      if (selection.downloadMethod === 'zip' && typeof JSZip === 'undefined') {
+        throw new Error("JSZip library not found. Please include it in your HTML file.");
+      }
+
+      // Create a new ZIP file if needed
+      const zip = selection.downloadMethod === 'zip' ? new JSZip() : null;
+      const generatedFiles = [];
+
       // For each selected mockup
       for (let i = 0; i < mockups.length; i++) {
         const mockup = mockups[i];
@@ -640,18 +658,86 @@ const Export = (function () {
           }
         });
 
-        // Download image - using model and mockup name in filename
+        // Generate filename
         const fileName = `${mockup.model || "Inne"}_${mockup.name.replace(
           /\s+/g,
           "_"
         )}_${i + 1}.${selection.format}`;
 
-        await generateAndDownloadImage(
-          fileName,
-          selection.format,
-          selection.size,
-          selection.quality
-        );
+        // If using ZIP, capture the canvas data but don't download it
+        if (selection.downloadMethod === 'zip') {
+          // Generate the image - similar to generateAndDownloadImage but without download
+          const canvas = await captureCanvasForZip(selection.format, selection.size, selection.quality);
+          
+          if (canvas) {
+            // Store the canvas for later adding to ZIP
+            generatedFiles.push({
+              fileName: fileName,
+              canvas: canvas,
+              format: selection.format,
+              quality: selection.quality
+            });
+            
+            if (window.Debug) {
+              Debug.debug("EXPORT", `Added ${fileName} to ZIP queue`);
+            }
+          }
+        } else {
+          // Download individually (original behavior)
+          await generateAndDownloadImage(
+            fileName,
+            selection.format,
+            selection.size,
+            selection.quality
+          );
+        }
+      }
+
+      // If using ZIP method, process all stored canvases and create the ZIP file
+      if (selection.downloadMethod === 'zip' && generatedFiles.length > 0) {
+        progressMsg.textContent = "Tworzenie archiwum ZIP...";
+        
+        // Get current date for zip filename
+        const date = new Date();
+        const zipFilename = `mockups_${date.getFullYear()}-${(date.getMonth()+1).toString().padStart(2, '0')}-${date.getDate().toString().padStart(2, '0')}.zip`;
+        
+        // Add each file to the ZIP
+        for (let i = 0; i < generatedFiles.length; i++) {
+          const file = generatedFiles[i];
+          progressMsg.textContent = `Dodawanie do ZIP: ${i+1}/${generatedFiles.length}`;
+          
+          // Convert canvas to blob
+          const blob = await new Promise(resolve => {
+            if (file.format === 'jpg') {
+              // Get quality setting
+              let jpgQuality = 0.92; // High default
+              if (file.quality === "ultra") {
+                jpgQuality = 0.95;
+              } else if (file.quality === "standard") {
+                jpgQuality = 0.85;
+              }
+              file.canvas.toBlob(resolve, 'image/jpeg', jpgQuality);
+            } else {
+              file.canvas.toBlob(resolve, 'image/png');
+            }
+          });
+          
+          // Add to ZIP
+          zip.file(file.fileName, blob);
+        }
+        
+        // Generate ZIP file
+        progressMsg.textContent = "Generowanie archiwum ZIP...";
+        const zipBlob = await zip.generateAsync({
+          type: 'blob',
+          compression: "DEFLATE",
+          compressionOptions: {
+            level: 6 // Balanced compression
+          }
+        });
+        
+        // Download the ZIP file
+        downloadUsingBlob(zipBlob, zipFilename);
       }
     } catch (error) {
       console.error("Error generating multiple mockups:", error);
@@ -687,6 +773,179 @@ const Export = (function () {
   }
 
   /**
+   * Capture canvas for ZIP without downloading
+   * This is a variation of generateAndDownloadImage that returns the canvas instead of downloading
+   * @param {string} format - File format (png/jpg)
+   * @param {number} size - Image size in pixels
+   * @param {string} quality - Quality setting (standard/high/ultra)
+   * @returns {Promise<HTMLCanvasElement>} - Canvas element with the captured image
+   */
+  async function captureCanvasForZip(format = "png", size = 1000, quality = "high") {
+    try {
+      const transformState = Transformations.getState();
+
+      // Ensure html2canvas is loaded
+      if (typeof html2canvas !== "function") {
+        if (window.Debug) {
+          Debug.debug("EXPORT", "html2canvas not loaded, loading it now");
+        }
+        await loadHtml2Canvas();
+      }
+
+      // Get the editor container
+      const editorContainer = document.getElementById("editor-container");
+      if (!editorContainer) {
+        throw new Error("Editor container not found");
+      }
+
+      // Store exact visual state before capture
+      const editorRect = editorContainer.getBoundingClientRect();
+
+      // Save all relevant DOM element states that we'll temporarily modify
+      const elementsToHide = [];
+      document
+        .querySelectorAll(".controls, .drag-instruction, .calibration-bubble")
+        .forEach((el) => {
+          elementsToHide.push({
+            element: el,
+            display: el.style.display,
+          });
+          el.style.display = "none";
+        });
+
+      // Save original editor background color
+      const originalBgColor = editorContainer.style.backgroundColor;
+      // Set background from current state
+      editorContainer.style.backgroundColor =
+        transformState.currentBackgroundColor || "#FFFFFF";
+
+      // Determine capture scale based on quality settings and device pixel ratio
+      const devicePixelRatio = window.devicePixelRatio || 1;
+      let captureScale = devicePixelRatio;
+
+      if (quality === "high") {
+        captureScale = Math.max(2, devicePixelRatio);
+      } else if (quality === "ultra") {
+        captureScale = Math.max(3, devicePixelRatio);
+      }
+
+      // Configure html2canvas for high quality capture
+      const html2canvasOptions = {
+        backgroundColor: transformState.currentBackgroundColor || "#FFFFFF",
+        // Key improvement: use higher scale for better quality
+        scale: captureScale,
+        logging: window.Debug ? true : false,
+        useCORS: true,
+        allowTaint: true,
+        // Add additional rendering improvements
+        imageTimeout: 0, // No timeout for image loading
+        removeContainer: false,
+        foreignObjectRendering: false, // More compatible but may be slower
+        ignoreElements: (element) => {
+          // Ignore controls and UI elements
+          return (
+            element.classList &&
+            (element.classList.contains("controls") ||
+              element.classList.contains("drag-instruction") ||
+              element.classList.contains("calibration-bubble"))
+          );
+        },
+        onclone: (clonedDoc) => {
+          if (window.Debug) {
+            Debug.debug("EXPORT", "DOM cloned by html2canvas");
+          }
+          // Enhance image quality in the cloned document
+          const imageElements = clonedDoc.querySelectorAll("img");
+          imageElements.forEach((img) => {
+            // Remove any image smoothing that might blur pixel art
+            if (img.style) {
+              img.style.imageRendering = "high-quality";
+            }
+          });
+        },
+      };
+
+      if (window.Debug) {
+        Debug.debug(
+          "EXPORT",
+          "Starting html2canvas with enhanced options",
+          html2canvasOptions
+        );
+      }
+
+      // Directly capture the actual editor container (not a clone)
+      const canvas = await html2canvas(editorContainer, html2canvasOptions);
+
+      // Restore all hidden elements
+      elementsToHide.forEach((item) => {
+        item.element.style.display = item.display || "";
+      });
+
+      // Restore original background color
+      editorContainer.style.backgroundColor = originalBgColor;
+
+      if (window.Debug) {
+        Debug.debug("EXPORT", "html2canvas capture completed", {
+          width: canvas.width,
+          height: canvas.height,
+          scale: captureScale,
+        });
+      }
+
+      // Create output canvas with requested dimensions
+      const outputCanvas = document.createElement("canvas");
+      outputCanvas.width = size;
+      outputCanvas.height = size;
+      const ctx = outputCanvas.getContext("2d");
+
+      // Apply high-quality scaling settings
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = "high";
+
+      // Use better algorithms when possible
+      if (typeof ctx.filter !== "undefined") {
+        // Apply subtle sharpening for PNG exports
+        if (format === "png" && quality === "ultra") {
+          ctx.filter = "contrast(1.05) saturate(1.02)";
+        }
+      }
+
+      // Fill with background color first
+      ctx.fillStyle = transformState.currentBackgroundColor || "#FFFFFF";
+      ctx.fillRect(0, 0, size, size);
+
+      // Draw captured content with proper centering and scaling
+      const scaleFactor = Math.min(size / canvas.width, size / canvas.height);
+      const drawWidth = canvas.width * scaleFactor;
+      const drawHeight = canvas.height * scaleFactor;
+      const drawX = (size - drawWidth) / 2;
+      const drawY = (size - drawHeight) / 2;
+
+      // Draw image with best quality
+      ctx.drawImage(canvas, drawX, drawY, drawWidth, drawHeight);
+
+      // Apply subtle sharpen effect for better details (post-processing)
+      if (format === "png" && quality === "ultra") {
+        try {
+          applySharpen(outputCanvas);
+        } catch (err) {
+          if (window.Debug) {
+            Debug.warn("EXPORT", "Could not apply sharpen filter", err);
+          }
+        }
+      }
+
+      return outputCanvas;
+    } catch (error) {
+      console.error("Error capturing canvas:", error);
+      if (window.Debug) {
+        Debug.error("EXPORT", "Error during canvas capture", error);
+      }
+      return null;
+    }
+  }
+
+  /**
    * Initialize export module
    */
   function init() {
@@ -695,6 +954,11 @@ const Export = (function () {
         "EXPORT",
         "Initializing export module with high quality support"
       );
+    }
+
+    // Update the default size in EditorConfig
+    if (EditorConfig && EditorConfig.export) {
+      EditorConfig.export.defaultSize = 1000;
     }
 
     // Download button handler
@@ -752,6 +1016,7 @@ const Export = (function () {
     showDownloadOptions,
     generateAndDownloadImage,
     downloadMultipleMockups,
+    captureCanvasForZip
   };
 })();
 

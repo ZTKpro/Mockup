@@ -117,77 +117,78 @@ const ElementsManager = (function () {
     }
 
     try {
-      // Pokaż wskaźnik ładowania, jeśli go masz
+      // Pokaż wskaźnik ładowania
       showLoadingIndicator("Ładowanie elementów...");
 
       // Zachowaj aktualne elementy (przed ładowaniem)
       const currentElements = [...elements];
       const hadElements = currentElements.length > 0;
 
-      // Załaduj elementy z serwera
-      const savedElements = await Storage.loadElementsForMockup(
-        currentMockupId
-      );
-
-      // Jeśli mamy zapisane elementy, zastąp aktualne elementy
-      if (savedElements && savedElements.length > 0) {
-        elements = savedElements;
-
-        // Znajdź najwyższe ID elementu, aby zaktualizować nextElementId
-        nextElementId = 1;
-        elements.forEach((element) => {
-          if (element.id >= nextElementId) {
-            nextElementId = element.id + 1;
-          }
-        });
-
-        // Ustaw aktywny element na pierwszy
-        activeElementIndex = elements.length > 0 ? 0 : -1;
-
+      // ZMODYFIKOWANA LOGIKA: Jeśli mamy elementy - zawsze je przenoś między mockupami
+      if (hadElements) {
+        // Przenoś elementy między mockupami
         if (window.Debug) {
           Debug.info(
             "ELEMENTS_MANAGER",
-            `Załadowano ${elements.length} elementów dla mockupu ID=${currentMockupId}`
+            `Przenoszenie ${currentElements.length} elementów do nowego mockupu ID=${currentMockupId}`
           );
         }
+
+        // Zachowaj aktualne elementy
+        elements = currentElements;
+
+        // Zapisz te elementy dla nowego mockupu
+        if (window.Storage) {
+          try {
+            await Storage.saveElementsForMockup(currentMockupId, elements);
+            if (window.Debug) {
+              Debug.debug(
+                "ELEMENTS_MANAGER",
+                `Zapisano elementy dla nowego mockupu ID=${currentMockupId}`
+              );
+            }
+          } catch (error) {
+            console.error("Błąd zapisywania przeniesionych elementów:", error);
+          }
+        }
       } else {
-        // Brak zapisanych elementów dla tego mockupu
-        if (hadElements) {
-          // Przenieś elementy z poprzedniego mockupu
+        // Nie mamy elementów, sprawdź czy są zapisane dla tego mockupu
+        const savedElements = await Storage.loadElementsForMockup(
+          currentMockupId
+        );
+
+        // Jeśli są zapisane elementy, użyj ich
+        if (savedElements && savedElements.length > 0) {
+          elements = savedElements;
+
+          // Znajdź najwyższe ID elementu
+          nextElementId = 1;
+          elements.forEach((element) => {
+            if (element.id >= nextElementId) {
+              nextElementId = element.id + 1;
+            }
+          });
+
           if (window.Debug) {
             Debug.info(
               "ELEMENTS_MANAGER",
-              `Przenoszenie ${currentElements.length} elementów do nowego mockupu ID=${currentMockupId}`
+              `Załadowano ${elements.length} elementów dla mockupu ID=${currentMockupId}`
             );
           }
-
-          // Zachowaj aktualne elementy
-          elements = currentElements;
-
-          // Zapisz te elementy dla nowego mockupu
-          if (window.Storage) {
-            try {
-              await Storage.saveElementsForMockup(currentMockupId, elements);
-            } catch (error) {
-              console.error(
-                "Błąd zapisywania przeniesionych elementów:",
-                error
-              );
-            }
-          }
         } else {
-          // Brak elementów do przeniesienia, wyczyść tablicę
+          // Brak zapisanych elementów
           elements = [];
-          activeElementIndex = -1;
-
           if (window.Debug) {
             Debug.debug(
               "ELEMENTS_MANAGER",
-              `Brak zapisanych elementów dla mockupu ID=${currentMockupId}`
+              `Brak elementów dla mockupu ID=${currentMockupId}`
             );
           }
         }
       }
+
+      // Ustaw aktywny element na pierwszy, jeśli mamy elementy
+      activeElementIndex = elements.length > 0 ? 0 : -1;
 
       // Aktualizuj UI i podglądy
       updateElementsList();
@@ -219,7 +220,6 @@ const ElementsManager = (function () {
       }
     }
   }
-
   /**
    * Zapisuje aktualne elementy na serwerze
    * @returns {Promise} - Promise rozwiązywane po zakończeniu zapisu
