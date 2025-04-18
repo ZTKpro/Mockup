@@ -40,7 +40,10 @@ const Export = (function () {
         <select id="size-select" style="width: 100%; padding: 8px; border-radius: 4px; border: 1px solid #ddd;">
           ${EditorConfig.export.availableSizes
             .map(
-              (size) => `<option value="${size}" ${size === 1000 ? 'selected' : ''}>${size} x ${size} px</option>`
+              (size) =>
+                `<option value="${size}" ${
+                  size === 1000 ? "selected" : ""
+                }>${size} x ${size} px</option>`
             )
             .join("")}
         </select>
@@ -526,7 +529,10 @@ const Export = (function () {
         <select id="batch-size-select" style="width: 100%; padding: 8px; border-radius: 4px; border: 1px solid #ddd;">
           ${EditorConfig.export.availableSizes
             .map(
-              (size) => `<option value="${size}" ${size === 1000 ? 'selected' : ''}>${size} x ${size} px</option>`
+              (size) =>
+                `<option value="${size}" ${
+                  size === 1000 ? "selected" : ""
+                }>${size} x ${size} px</option>`
             )
             .join("")}
         </select>
@@ -574,7 +580,9 @@ const Export = (function () {
           10
         );
         const quality = document.getElementById("batch-quality-select").value;
-        const downloadMethod = document.getElementById("batch-download-method").value;
+        const downloadMethod = document.getElementById(
+          "batch-download-method"
+        ).value;
 
         document.body.removeChild(dialogOverlay);
         resolve({ format, size, quality, downloadMethod });
@@ -603,12 +611,14 @@ const Export = (function () {
 
     try {
       // Check if JSZip is available when zip method is selected
-      if (selection.downloadMethod === 'zip' && typeof JSZip === 'undefined') {
-        throw new Error("JSZip library not found. Please include it in your HTML file.");
+      if (selection.downloadMethod === "zip" && typeof JSZip === "undefined") {
+        throw new Error(
+          "JSZip library not found. Please include it in your HTML file."
+        );
       }
 
       // Create a new ZIP file if needed
-      const zip = selection.downloadMethod === 'zip' ? new JSZip() : null;
+      const zip = selection.downloadMethod === "zip" ? new JSZip() : null;
       const generatedFiles = [];
 
       // For each selected mockup
@@ -665,19 +675,23 @@ const Export = (function () {
         )}_${i + 1}.${selection.format}`;
 
         // If using ZIP, capture the canvas data but don't download it
-        if (selection.downloadMethod === 'zip') {
+        if (selection.downloadMethod === "zip") {
           // Generate the image - similar to generateAndDownloadImage but without download
-          const canvas = await captureCanvasForZip(selection.format, selection.size, selection.quality);
-          
+          const canvas = await captureCanvasForZip(
+            selection.format,
+            selection.size,
+            selection.quality
+          );
+
           if (canvas) {
             // Store the canvas for later adding to ZIP
             generatedFiles.push({
               fileName: fileName,
               canvas: canvas,
               format: selection.format,
-              quality: selection.quality
+              quality: selection.quality,
             });
-            
+
             if (window.Debug) {
               Debug.debug("EXPORT", `Added ${fileName} to ZIP queue`);
             }
@@ -694,21 +708,27 @@ const Export = (function () {
       }
 
       // If using ZIP method, process all stored canvases and create the ZIP file
-      if (selection.downloadMethod === 'zip' && generatedFiles.length > 0) {
+      if (selection.downloadMethod === "zip" && generatedFiles.length > 0) {
         progressMsg.textContent = "Tworzenie archiwum ZIP...";
-        
+
         // Get current date for zip filename
         const date = new Date();
-        const zipFilename = `mockups_${date.getFullYear()}-${(date.getMonth()+1).toString().padStart(2, '0')}-${date.getDate().toString().padStart(2, '0')}.zip`;
-        
+        const zipFilename = `mockups_${date.getFullYear()}-${(
+          date.getMonth() + 1
+        )
+          .toString()
+          .padStart(2, "0")}-${date.getDate().toString().padStart(2, "0")}.zip`;
+
         // Add each file to the ZIP
         for (let i = 0; i < generatedFiles.length; i++) {
           const file = generatedFiles[i];
-          progressMsg.textContent = `Dodawanie do ZIP: ${i+1}/${generatedFiles.length}`;
-          
+          progressMsg.textContent = `Dodawanie do ZIP: ${i + 1}/${
+            generatedFiles.length
+          }`;
+
           // Convert canvas to blob
-          const blob = await new Promise(resolve => {
-            if (file.format === 'jpg') {
+          const blob = await new Promise((resolve) => {
+            if (file.format === "jpg") {
               // Get quality setting
               let jpgQuality = 0.92; // High default
               if (file.quality === "ultra") {
@@ -716,26 +736,26 @@ const Export = (function () {
               } else if (file.quality === "standard") {
                 jpgQuality = 0.85;
               }
-              file.canvas.toBlob(resolve, 'image/jpeg', jpgQuality);
+              file.canvas.toBlob(resolve, "image/jpeg", jpgQuality);
             } else {
-              file.canvas.toBlob(resolve, 'image/png');
+              file.canvas.toBlob(resolve, "image/png");
             }
           });
-          
+
           // Add to ZIP
           zip.file(file.fileName, blob);
         }
-        
+
         // Generate ZIP file
         progressMsg.textContent = "Generowanie archiwum ZIP...";
         const zipBlob = await zip.generateAsync({
-          type: 'blob',
+          type: "blob",
           compression: "DEFLATE",
           compressionOptions: {
-            level: 6 // Balanced compression
-          }
+            level: 6, // Balanced compression
+          },
         });
-        
+
         // Download the ZIP file
         downloadUsingBlob(zipBlob, zipFilename);
       }
@@ -780,7 +800,11 @@ const Export = (function () {
    * @param {string} quality - Quality setting (standard/high/ultra)
    * @returns {Promise<HTMLCanvasElement>} - Canvas element with the captured image
    */
-  async function captureCanvasForZip(format = "png", size = 1000, quality = "high") {
+  async function captureCanvasForZip(
+    format = "png",
+    size = 1000,
+    quality = "high"
+  ) {
     try {
       const transformState = Transformations.getState();
 
@@ -1016,7 +1040,7 @@ const Export = (function () {
     showDownloadOptions,
     generateAndDownloadImage,
     downloadMultipleMockups,
-    captureCanvasForZip
+    captureCanvasForZip,
   };
 })();
 
