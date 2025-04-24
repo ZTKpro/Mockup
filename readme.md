@@ -167,4 +167,4 @@ Mockupy powinny mieć następujące cechy:
 
 W razie pytań lub problemów, skontaktuj się z:
 - Email: damianszmurlowork@gmail.com
-- Strona: dswebsite
+- Strona: dswebsite.pl
